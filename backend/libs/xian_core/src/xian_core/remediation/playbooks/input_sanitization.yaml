@@ -1,0 +1,29 @@
+id: RB-INPUT-A
+title: 输入侧注入检测中间件
+root_cause: no_input_sanitization
+artifacts:
+  - type: code
+    language: python
+    snippet: |
+      INJECTION_PATTERNS = (r"ignore\s+previous", r"\u5ffd\u7565\u4e0a\u8ff0\u6307\u4ee4", r"system\s*message", r"\[INST\]")
+
+      def detect_injection(text: str) -> bool:
+          return any(re.search(p, text, re.I) for p in INJECTION_PATTERNS)
+
+      class InjectionGuardMiddleware:
+          async def __call__(self, payload: dict, nxt):
+              if detect_injection(json.dumps(payload, ensure_ascii=False)):
+                  raise InjectionBlocked("\u68c0\u6d4b\u5230\u63d0\u793a\u6ce8\u5165\u5c1d\u8bd5")
+              return await nxt(payload)
+  - type: guardrail_rule
+    language: nemoguardrails
+    snippet: |
+      define user try jailbreak
+        "ignore previous instructions"
+      define bot refuse jailbreak
+        "该请求违反使用策略，我已拒绝。"
+priority: P1
+cost: M
+risk_reduction: 0.3
+side_effects: 误报会拦截部分正常长文本，需按租户调阈值
+verification: L5 关卡复测不通过

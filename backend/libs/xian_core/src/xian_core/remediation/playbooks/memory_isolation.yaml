@@ -1,0 +1,23 @@
+id: RB-MEMORY-A
+title: 长期记忆隔离与写入审批
+root_cause: no_memory_isolation
+artifacts:
+  - type: config
+    snippet: |
+      memory:
+        write_requires_approval: true
+        bind_to_user: true
+        instruction_like_patterns: ["\u4ee5\u540e\u6bcf\u6b21", "\u9ed8\u8ba4\u6267\u884c", "always", "from now on"]
+        new_session_auto_execute: false
+  - type: code
+    language: python
+    snippet: |
+      def write_memory(key: str, value: str, user: User):
+          if any(p in value for p in INSTRUCTION_PATTERNS):
+              raise MemoryWriteRejected("\u8bb0\u5fc6\u5185\u5bb9\u542b\u6307\u4ee4\u6027\u8bed\u4e49\uff0c\u9700\u4eba\u5de5\u5ba1\u6279")
+          store.put(namespace=user.id, key=key, value=value)
+priority: P1
+cost: M
+risk_reduction: 0.3
+side_effects: 个性化记忆能力下降，需显式确认
+verification: L8 关卡复测不通过

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>{{ report.title }}</title>
+<style>
+  :root { --bg:#0b0f1a; --card:#141a2a; --line:#22304d; --fg:#e6ecf7; --muted:#8fa2c4; --accent:#4f8cff; --crit:#ff5470; --high:#ff9f43; --ok:#2fd4a0; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.7 "PingFang SC","Microsoft YaHei",system-ui,sans-serif; }
+  header { padding:32px 40px; background:linear-gradient(135deg,#101828,#1b2540); border-bottom:1px solid var(--line); }
+  h1 { margin:0 0 8px; font-size:26px; }
+  main { max-width:1080px; margin:0 auto; padding:24px 40px 64px; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px 24px; margin:16px 0; }
+  h2 { font-size:18px; margin:0 0 12px; color:var(--accent); }
+  table { width:100%; border-collapse:collapse; }
+  th,td { border-bottom:1px solid var(--line); padding:8px 10px; text-align:left; }
+  th { color:var(--muted); font-weight:600; }
+  .kpi { display:flex; gap:16px; flex-wrap:wrap; }
+  .kpi div { flex:1 1 160px; background:#0f1626; border:1px solid var(--line); border-radius:10px; padding:14px; }
+  .kpi b { display:block; font-size:24px; }
+  .sev-critical{color:var(--crit)} .sev-high{color:var(--high)} .sev-medium{color:#ffd166} .sev-low,.sev-info{color:var(--ok)}
+  pre { background:#0a1020; border:1px solid var(--line); border-radius:8px; padding:12px; overflow:auto; }
+  code { font-family:ui-monospace,Consolas,monospace; }
+  .chain { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .chain span { background:#0f1626; border:1px solid var(--line); border-radius:999px; padding:4px 12px; }
+  .chain em { color:var(--muted); font-style:normal; }
+  footer { color:var(--muted); text-align:center; padding:24px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>{{ report.title }}</h1>
+  <div>报告编号 <code>{{ report.id }}</code> ｜ 标的 {{ report.subject_type }} ｜ {{ report.created_at }}</div>
+</header>
+<main>
+<section>
+  <h2>一、执行摘要</h2>
+  <div class="kpi">
+    <div><b>{{ report.sec_score }}</b>SecScore（等级 {{ report.grade }}）</div>
+    <div><b>{{ '%.1f'|format(report.asr * 100) }}%</b>攻击成功率</div>
+    <div><b>{{ report.high_risk_cases|length }}</b>高危命中</div>
+    <div><b>{{ '%.1f'|format(report.baseline_pass_rate * 100) }}%</b>可用性基线通过率</div>
+  </div>
+  <p>{{ report.executive_summary }}</p>
+  <ol>{% for risk in report.top_risks %}<li><span class="sev-{{ risk.severity }}">{{ risk.severity|upper }}</span> {{ risk.title }}（{{ risk.root_cause }}）</li>{% endfor %}</ol>
+</section>
+
+<section>
+  <h2>二、Agent 画像与攻击面清单</h2>
+  <table>
+    <tr><th>项目</th><th>值</th></tr>
+    <tr><td>Agent</td><td>{{ report.agent.name }}（{{ report.agent.access_type }}）</td></tr>
+    <tr><td>归属校验</td><td>{{ '已通过' if report.agent.ownership_verified else '未通过' }}</td></tr>
+    <tr><td>防护基线</td><td>护栏={{ report.agent.baseline.has_guardrail }}、工具范围={{ report.agent.baseline.tool_scope }}、联网={{ report.agent.baseline.network_enabled }}</td></tr>
+    <tr><td>延迟</td><td>P50 {{ report.agent.latency_p50 }}ms / P99 {{ report.agent.latency_p99 }}ms</td></tr>
+  </table>
+  <table>
+    <tr><th>攻击面</th><th>明细</th></tr>
+    <tr><td>工具（{{ report.agent.tools|length }}）</td><td>{% for t in report.agent.tools %}<code>{{ t.name }}</code>({{ t.scope }}){% if not loop.last %} {% endif %}{% endfor %}</td></tr>
+    <tr><td>提示词片段</td><td>{{ report.agent.prompt_fragments|length }} 条</td></tr>
+    <tr><td>蜜标类型</td><td>{{ report.agent.canary_types|join('、') }}</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2>三、攻击路径图</h2>
+  <div class="chain">{% for node in report.attack_path.nodes %}<span>{{ node.stage }}: {{ node.label }}</span>{% if not loop.last %}<em>→</em>{% endif %}{% endfor %}</div>
+  <p>命中 kill chain：{{ report.attack_path.kill_chain|join(' → ') }}；断裂阶段：{{ report.attack_path.missing_stages|join('、') if report.attack_path.missing_stages else '无' }}</p>
+</section>
+
+<section>
+  <h2>四、分类别结果</h2>
+  <table>
+    <tr><th>类别</th><th>用例数</th><th>成功数</th><th>ASR</th><th>最高严重度</th></tr>
+    {% for row in report.categories %}<tr><td>{{ row.code }} {{ row.name }}</td><td>{{ row.total }}</td><td>{{ row.success }}</td><td>{{ '%.1f'|format(row.asr * 100) }}%</td><td class="sev-{{ row.max_severity }}">{{ row.max_severity }}</td></tr>{% endfor %}
+  </table>
+  <p>覆盖 {{ report.categories|length }} / {{ report.total_categories }} 类（AC-04）。</p>
+</section>
+
+<section>
+  <h2>五、高危详情</h2>
+  {% for item in report.high_risk_cases %}
+  <div>
+    <h3>{{ loop.index }}. {{ item.title }} <span class="sev-{{ item.severity }}">{{ item.severity|upper }}</span></h3>
+    <pre><code>{{ item.payload }}</code></pre>
+    <div>判定：{{ item.verdict }}（置信度 {{ '%.2f'|format(item.confidence) }}）；命中规则：{{ item.golden_rules|join('、') if item.golden_rules else '无' }}；trace：<code>{{ item.trace_ref }}</code></div>
+  </div>
+  {% endfor %}
+</section>
+
+<section>
+  <h2>六、根因分析与修复建议</h2>
+  {% for finding in report.findings %}
+  <div>
+    <h3>{{ finding.root_cause_code }} <span class="sev-{{ finding.severity }}">{{ finding.severity|upper }}</span></h3>
+    <div>定位：{{ finding.affected_config.kind if finding.affected_config.kind else finding.affected_config }}；证据 {{ finding.evidence|length }} 条</div>
+    <ul>{% for rec in finding.recommendations %}<li><b>{{ rec.priority }}</b> {{ rec.playbook_ref }}（成本 {{ rec.effort }}）{{ rec.expected_effect }}</li>{% endfor %}</ul>
+  </div>
+  {% endfor %}
+</section>
+
+<section>
+  <h2>七、整改清单（优先级 × 成本矩阵）</h2>
+  <pre><code>{{ report.remediation.matrix|tojson(indent=2) }}</code></pre>
+  <p>合计 {{ report.remediation.total }} 项。</p>
+</section>
+
+<section>
+  <h2>八、复测对比</h2>
+  <table>
+    <tr><th>版本</th><th>SecScore</th><th>ASR</th><th>基线通过率</th></tr>
+    {% for row in report.retest.versions %}<tr><td>{{ row.version }}</td><td>{{ row.sec_score }}</td><td>{{ '%.1f'|format(row.asr * 100) }}%</td><td>{{ '%.1f'|format(row.baseline_pass_rate * 100) }}%</td></tr>{% endfor %}
+  </table>
+  {% if report.retest.regression_failed %}<p class="sev-critical">检测到回归：SecScore 跌幅超过 5 分，门禁判定 fail（AC-11）。</p>{% endif %}
+</section>
+
+<section>
+  <h2>九、合规映射</h2>
+  <table>
+    <tr><th>框架</th><th>命中条目</th></tr>
+    {% for row in report.compliance %}<tr><td>{{ row.framework }}</td><td>{{ row.matched|join('、') }}</td></tr>{% endfor %}
+  </table>
+</section>
+</main>
+<footer>本报告由 XIAN AI Agent 红蓝对抗平台自动生成；演练均在隔离沙箱内完成，数据全部虚构。</footer>
+</body>
+</html>

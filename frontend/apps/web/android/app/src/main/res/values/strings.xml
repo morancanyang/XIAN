@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">XIAN</string>
+    <string name="title_activity_main">XIAN</string>
+    <string name="package_name">com.xian.redblue</string>
+    <string name="custom_url_scheme">com.xian.redblue</string>
+</resources>

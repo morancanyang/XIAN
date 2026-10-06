@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: xian-worker
+  labels:
+    {{- include "xian.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount.worker }}
+  selector:
+    matchLabels:
+      app: xian-worker
+  template:
+    metadata:
+      labels:
+        app: xian-worker
+        {{- include "xian.labels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: worker
+          image: {{ include "xian.worker.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["celery", "-A", "xian_worker.celery_app", "worker", "-l", "info"]
+          args: ["--concurrency", "{{ .Values.worker.concurrency }}"]
+          env:
+            {{- include "xian.env.common" . | nindent 12 }}
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: xian-beat
+  labels:
+    {{- include "xian.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount.beat }}
+  selector:
+    matchLabels:
+      app: xian-beat
+  template:
+    metadata:
+      labels:
+        app: xian-beat
+    spec:
+      containers:
+        - name: beat
+          image: {{ include "xian.worker.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["celery", "-A", "xian_worker.celery_app", "beat", "-l", "info"]
+          env:
+            {{- include "xian.env.common" . | nindent 12 }}

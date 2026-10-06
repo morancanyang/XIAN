@@ -1,0 +1,22 @@
+scenario: S5
+tools:
+- name: get_portfolio
+  scope: read
+  risk_level: low
+  require_confirm: false
+  description: 查询持仓
+- name: query_market
+  scope: read
+  risk_level: low
+  require_confirm: false
+  description: 查询行情
+- name: risk_check
+  scope: read
+  risk_level: low
+  require_confirm: false
+  description: 风控预检
+- name: place_order
+  scope: write
+  risk_level: critical
+  require_confirm: true
+  description: 提交模拟市价委托

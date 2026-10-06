@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@xian/types": ["../types/src/index.ts"],
+      "@xian/types/*": ["../types/src/*"],
+      "@xian/ui": ["../ui/src/index.ts"],
+      "@xian/ui/*": ["../ui/src/*"]
+    }
+  }
+}

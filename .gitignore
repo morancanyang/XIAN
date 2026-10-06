@@ -1,0 +1,51 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ---- 构建产物 ----
+dist/
+build/
+*.tsbuildinfo
+frontend/**/dist/
+
+# ---- 依赖 ----
+node_modules/
+frontend/**/node_modules/
+.pnp.*
+
+# ---- 环境与密钥 ----
+.env
+.env.local
+.env.*.local
+
+# ---- 本地数据 / 产物 ----
+.xian-dev.db
+*.sqlite3
+outputs/
+backend/outputs/
+backend/libs/xian_core/outputs/
+frontend/apps/web/dist/
+
+# ---- 临时文件 ----
+outputs/_*.txt
+outputs/_*.py
+.DS_Store
+Thumbs.db
+
+# ---- IDE ----
+.idea/
+.vscode/
+*.swp
+
+# ---- 日志 ----
+*.log
+npm-debug.log*
+pnpm-debug.log*

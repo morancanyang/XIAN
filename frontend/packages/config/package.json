@@ -1,0 +1,16 @@
+{
+  "name": "@xian/config",
+  "version": "1.0.0",
+  "private": true,
+  "description": "共享工程配置：tsconfig / eslint / prettier / tailwind preset",
+  "type": "module",
+  "exports": {
+    "./tsconfig.base.json": "./tsconfig.base.json",
+    "./tsconfig.react-library.json": "./tsconfig.react-library.json",
+    "./eslint/base": "./eslint/base.cjs",
+    "./eslint/react": "./eslint/react.cjs",
+    "./prettier": "./prettier/index.cjs",
+    "./tailwind-preset": "./tailwind/preset.js"
+  },
+  "files": ["tsconfig*.json", "eslint", "prettier", "tailwind"]
+}

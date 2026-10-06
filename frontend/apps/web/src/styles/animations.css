@@ -1,0 +1,66 @@
+/* 动效规范（技术方案 8.6）。所有动画必须可被「减弱动效」降级。 */
+
+@keyframes xian-pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes xian-badge-pop {
+  0% {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes xian-sweep {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+
+.xian-badge-pop {
+  animation: xian-badge-pop var(--dur-base) var(--ease-out);
+}
+
+.xian-sweep {
+  animation: xian-sweep 2s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .xian-badge-pop,
+  .xian-sweep,
+  .animate-pulse,
+  .animate-spin {
+    animation: none !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* 减弱动效开关生效时，与 prefers-reduced-motion 同等降级 */
+[data-reduced-motion='true'] .xian-badge-pop,
+[data-reduced-motion='true'] .xian-sweep,
+[data-reduced-motion='true'] .animate-pulse,
+[data-reduced-motion='true'] .animate-spin {
+  animation: none !important;
+}

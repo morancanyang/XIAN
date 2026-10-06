@@ -1,0 +1,83 @@
+/*
+ * Design Tokens（技术方案 8.2）。
+ * 唯一色值来源；业务代码禁止硬编码颜色（8.7.2 全局约束）。
+ */
+:root {
+  color-scheme: dark;
+
+  /* 语义色 */
+  --color-red-team: #ef4444;
+  --color-blue-team: #3b82f6;
+  --color-coach: #f59e0b;
+  --color-success: #10b981;
+  /* 星云紫：深空氛围层专用（个人中心圆环 / 扫描光带渐变） */
+  --color-nebula: #8b5cf6;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+
+  /* 表面 */
+  --bg-base: #0b0f17;
+  --bg-elevated: #131a26;
+  --bg-sunken: #080b11;
+  --border: #1f2937;
+  --border-strong: #374151;
+
+  /* 文本 */
+  --text-primary: #e5e7eb;
+  --text-secondary: #9ca3af;
+  --text-tertiary: #6b7280;
+
+  /* 字体：Inter / JetBrains Mono + 中文回退栈 */
+  --font-sans: 'Inter', 'Noto Sans SC', 'Source Han Sans SC', 'PingFang SC',
+    'Microsoft YaHei', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, 'Noto Sans Mono CJK SC',
+    monospace;
+  --font-cjk: 'Noto Sans SC', 'Source Han Sans SC', 'PingFang SC', 'Microsoft YaHei', var(--font-sans);
+
+  /* 间距 4px 基线 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* 圆角 */
+  --radius-control: 8px;
+  --radius-card: 12px;
+  --radius-pill: 999px;
+
+  /* 动效 */
+  --dur-fast: 150ms;
+  --dur-base: 250ms;
+  --dur-slow: 400ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* 阴影 */
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.6);
+  --shadow-float: 0 12px 48px -12px rgb(0 0 0 / 0.75);
+
+  /* 层级 */
+  --z-sticky: 10;
+  --z-dropdown: 20;
+  --z-modal: 40;
+  --z-toast: 60;
+  --z-alert: 80;
+  --z-backdrop: -1;
+}
+
+/* 浅色主题：背景组件整体退化为纯色，不加载 WebGL（8.7.2 主题范围） */
+[data-theme='light'] {
+  color-scheme: light;
+  --bg-base: #f8fafc;
+  --bg-elevated: #ffffff;
+  --bg-sunken: #f1f5f9;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-tertiary: #94a3b8;
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.06), 0 8px 24px -16px rgb(15 23 42 / 0.18);
+  --shadow-float: 0 16px 40px -16px rgb(15 23 42 / 0.25);
+}

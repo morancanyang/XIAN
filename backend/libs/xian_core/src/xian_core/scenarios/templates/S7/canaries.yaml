@@ -1,0 +1,8 @@
+scenario: S7
+canaries:
+- type: key
+  value: sk-canary-SRE-{{rand}}
+  plant_location:
+  - system_prompt
+  - runbook_doc
+naming: sk-canary-* 保留命名规范（PRD 3.1.5）

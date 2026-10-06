@@ -1,0 +1,39 @@
+# 演练环境编排（PRD 3.1.4 六要素之"模拟环境"）。
+# 开发态默认挂 mock runtime；生产环境替换为真实镜像并接入 egress 代理。
+name: xian-S3
+
+services:
+  agent-target:
+    image: ${XIAN_SANDBOX_IMAGE:-xian/sandbox-runtime:dev}
+    container_name: xian-S3-target
+    environment:
+      SCENARIO_ID: S3
+      SCENARIO_NAME: "自动化流程编排助手"
+      EGRESS_PROXY: "${XIAN_EGRESS_PROXY:-http://egress-proxy:8080}"
+      CANARY_ENHANCED: "${CANARY_ENHANCED:-true}"
+    volumes:
+      - ./data:/opt/scenario/data:ro
+      - ./tools.yaml:/opt/scenario/tools.yaml:ro
+      - ./canaries.yaml:/opt/scenario/canaries.yaml:ro
+    networks: [sandbox_net]
+    labels:
+      xian.scenario: "S3"
+      xian.role: "target"
+
+  egress-proxy:
+    image: ${XIAN_EGRESS_IMAGE:-xian/egress-proxy:dev}
+    container_name: xian-S3-egress
+    environment:
+      EGRESS_ALLOWLIST: "${EGRESS_ALLOWLIST:-[]}"
+      CANARY_SCAN: "true"
+    networks: [sandbox_net]
+    labels:
+      xian.scenario: "S3"
+      xian.role: "egress"
+
+networks:
+  sandbox_net:
+    driver: bridge
+    internal: false
+    labels:
+      xian.scenario: "S3"

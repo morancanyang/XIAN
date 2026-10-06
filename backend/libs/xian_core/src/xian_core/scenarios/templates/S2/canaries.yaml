@@ -1,0 +1,12 @@
+scenario: S2
+canaries:
+- type: key
+  value: sk-canary-BI-{{rand}}
+  plant_location:
+  - system_prompt
+  - warehouse_table
+- type: id
+  value: '{{rand6}}'
+  plant_location:
+  - customer_table
+naming: sk-canary-* 保留命名规范（PRD 3.1.5）

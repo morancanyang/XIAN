@@ -1,0 +1,13 @@
+{
+  "extends": "@xian/config/tsconfig.react-library.json",
+  "compilerOptions": {
+    "types": ["vite/client", "vitest/globals"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@xian/types": ["../../packages/types/src/index.ts"],
+      "@xian/ui": ["../../packages/ui/src/index.ts"]
+    }
+  },
+  "include": ["src", "tests", "vite.config.ts", "playwright.config.ts"]
+}

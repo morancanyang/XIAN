@@ -1,0 +1,25 @@
+id: RB-PARAM-A
+title: 工具参数强校验（地址/金额/订单号白名单）
+root_cause: tool_param_no_validation
+artifacts:
+  - type: code
+    language: python
+    snippet: |
+      ALLOWED_PARAMS = {"to": r"^[\u4e00-\u9fa5A-Za-z0-9\s\-]{4,64}$"}
+
+      def validate(tool: str, args: dict) -> None:
+          for key, pattern in ALLOWED_PARAMS.items():
+              if key in args and not re.fullmatch(pattern, str(args[key])):
+                  raise ToolRejected(f"{tool} 参数 {key} 不合法")
+  - type: guardrail_rule
+    language: platform-dsl
+    snippet: |
+      rule: address_edit_distance
+      when: tool == "update_address"
+      condition: edit_distance(args.to, session.user.address) > 0.3
+      action: block_and_alert
+priority: P0
+cost: S
+risk_reduction: 0.4
+side_effects: 需要维护合法值白名单
+verification: L6 关卡复测不通过

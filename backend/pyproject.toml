@@ -1,0 +1,42 @@
+[project]
+name = "xian-backend"
+version = "1.0.0"
+description = "XIAN 后端聚合工程（真实 workspace 声明在仓库根 pyproject.toml）"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+src = ["libs", "services"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "C4", "SIM", "RUF"]
+ignore = [
+    "E501",
+    # 同根 pyproject.toml：中文全角标点为既定代码风格，不做 ASCII 化改写
+    "RUF001",
+    "RUF002",
+    "RUF003",
+    # 领域异常命名沿用 PRD 术语，是前后端错误码契约的一部分
+    "N818",
+    # FastAPI Depends() / Typer Option() 写在签名默认位是框架惯例用法
+    "B008",
+]
+
+[tool.black]
+line-length = 110
+target-version = ["py312"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = false
+warn_unused_configs = true
+ignore_missing_imports = true
+plugins = []
+
+[tool.pytest.ini_options]
+testpaths = ["libs", "services"]
+python_files = ["test_*.py"]
+asyncio_mode = "auto"
+addopts = "-q"

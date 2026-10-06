@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--bg-base);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-blue-team);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: rgba(59, 130, 246, 0.35);
+  }
+}
+
+@layer components {
+  .xian-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .xian-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 999px;
+  }
+  .xian-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .xian-mono {
+    font-family: var(--font-mono);
+    font-feature-settings: 'liga' 0;
+  }
+
+  .xian-cjk {
+    font-family: var(--font-cjk);
+  }
+}

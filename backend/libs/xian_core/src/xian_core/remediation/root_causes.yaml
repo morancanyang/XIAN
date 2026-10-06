@@ -1,0 +1,58 @@
+version: "1.0"
+causes:
+  - id: prompt_no_isolation
+    name: 指令通道未隔离
+    category: prompt
+    description: 系统指令与用户输入未做通道隔离，用户可通过诱导复述/翻译/角色扮演读取或改写系统指令。
+    signals: [prompt_markers_hit, system_prompt_disclosed]
+    default_severity: high
+    affected_config: system prompt / prompt template
+  - id: tool_scope_too_wide
+    name: 工具权限过宽
+    category: permission
+    description: 工具声明的 scope 超出业务最小必要，写/执行/网络类工具缺少二次确认。
+    signals: [unauthorized_tool_call, tool_scope_write_or_exec]
+    default_severity: critical
+    affected_config: tool schema / scope 声明
+  - id: tool_param_no_validation
+    name: 缺参数校验
+    category: tool
+    description: 工具参数未与会话上下文比对（如收货地址未与登录用户确认地址校验），可被社工篡改。
+    signals: [tool_param_match_canary, param_tampered]
+    default_severity: critical
+    affected_config: tool parameter schema / handler
+  - id: no_input_sanitization
+    name: 无输入清洗
+    category: middleware
+    description: 缺少注入检测中间件，间接注入（文档/邮件/RAG 片段）可直接触达模型与工具层。
+    signals: [indirect_injection, document_triggered_tool_call]
+    default_severity: high
+    affected_config: input pipeline
+  - id: rag_no_source_governance
+    name: RAG 无来源治理
+    category: rag
+    description: 检索结果未做来源可信度分级与指令剥离，不可信文档中的指令可被模型执行。
+    signals: [untrusted_source_executed, citation_confusion]
+    default_severity: high
+    affected_config: retriever / source filter
+  - id: output_no_filter
+    name: 输出无过滤
+    category: output
+    description: 输出侧缺少 PII/密钥正则与编码解码检测，密标与真实凭证可被原样或变形外带。
+    signals: [canary_in_output, encoded_leak, pii_in_output]
+    default_severity: critical
+    affected_config: response filter
+  - id: no_memory_isolation
+    name: 无记忆隔离
+    category: memory
+    description: 长期记忆可被任意会话写入并在新会话生效，造成跨会话持久化污染。
+    signals: [memory_poison, cross_session_effect]
+    default_severity: high
+    affected_config: memory store / session policy
+  - id: no_monitoring
+    name: 缺监控
+    category: ops
+    description: 缺少工具调用审计、token 熔断与蜜标告警，异常行为无法被及时发现与阻断。
+    signals: [resource_exhaustion, no_circuit_breaker, canary_missed]
+    default_severity: medium
+    affected_config: observability / circuit breaker

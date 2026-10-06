@@ -1,0 +1,93 @@
+# {{ report.title }}
+
+> 报告编号：{{ report.id }} ｜ 标的类型：{{ report.subject_type }} ｜ 生成时间：{{ report.created_at }}
+> SecScore：**{{ report.sec_score }}**（等级 {{ report.grade }}）｜ 攻击成功率 ASR：{{ '%.1f%%'|format(report.asr * 100) }}
+
+## 一、执行摘要
+
+{{ report.executive_summary }}
+
+**Top 3 风险：**
+{% for risk in report.top_risks %}
+{{ loop.index }}. **{{ risk.severity|upper }}** {{ risk.title }}（{{ risk.root_cause }}）
+{% endfor %}
+
+## 二、Agent 画像与攻击面清单
+
+- Agent：{{ report.agent.name }}（{{ report.agent.access_type }}）
+- 归属校验：{{ '已通过' if report.agent.ownership_verified else '未通过' }}
+- 防护基线声明：护栏={{ report.agent.baseline.has_guardrail }}，工具范围={{ report.agent.baseline.tool_scope }}，联网={{ report.agent.baseline.network_enabled }}
+- 首响延迟：P50 {{ report.agent.latency_p50 }}ms / P99 {{ report.agent.latency_p99 }}ms
+
+| 攻击面 | 数量 | 说明 |
+| --- | --- | --- |
+| 工具 | {{ report.agent.tools|length }} | {% for t in report.agent.tools %}{{ t.name }}({{ t.scope }}){% if not loop.last %}、{% endif %}{% endfor %} |
+| 提示词片段 | {{ report.agent.prompt_fragments|length }} | 可被诱导复述的系统指令片段 |
+| 蜜标 | {{ report.agent.canary_types|length }} | {{ report.agent.canary_types|join('、') }} |
+
+## 三、攻击路径图
+
+```mermaid
+graph LR
+{% for node in report.attack_path.nodes %}  {{ node.id }}["{{ node.stage }}: {{ node.label }}"]
+{% endfor %}{% for edge in report.attack_path.edges %}  {{ edge.from }} --> {{ edge.to }}
+{% endfor %}{% for stage in report.attack_path.missing_stages %}  gap{{ stage }}["{{ stage }} 证据缺失"]
+{% endfor %}```
+
+- 命中 kill chain：{{ report.attack_path.kill_chain|join(' → ') }}
+- 断裂阶段：{{ report.attack_path.missing_stages|join('、') if report.attack_path.missing_stages else '无' }}
+
+## 四、分类别结果
+
+| 类别 | 用例数 | 成功数 | ASR | 最高严重度 |
+| --- | --- | --- | --- | --- |
+{% for row in report.categories %}  | {{ row.code }} {{ row.name }} | {{ row.total }} | {{ row.success }} | {{ '%.1f%%'|format(row.asr * 100) }} | {{ row.max_severity }} |
+{% endfor %}
+- 覆盖类别：{{ report.categories|length }} / {{ report.total_categories }}（AC-04 要求 14 类全覆盖）
+
+## 五、高危详情
+
+{% for item in report.high_risk_cases %}
+### {{ loop.index }}. {{ item.title }}（{{ item.category_code }} / {{ item.severity }}）
+
+- 载荷：`{{ item.payload }}`
+- 判定：{{ item.verdict }}（置信度 {{ '%.2f'|format(item.confidence) }}）
+- 命中规则：{{ item.golden_rules|join('、') if item.golden_rules else '无' }}
+- trace：{{ item.trace_ref }}
+{% endfor %}
+
+## 六、根因分析与修复建议
+
+{% for finding in report.findings %}
+### {{ finding.root_cause_code }}（{{ finding.severity }}）
+
+- 定位：{{ finding.affected_config.kind if finding.affected_config.kind else finding.affected_config }}
+- 证据：{{ finding.evidence|length }} 条
+- 修复建议：{{ finding.recommendations|length }} 条
+{% for rec in finding.recommendations %}  - **{{ rec.priority }}** {{ rec.playbook_ref }}（成本 {{ rec.effort }}）：{{ rec.expected_effect }}
+{% endfor %}{% endfor %}
+## 七、整改清单（优先级 × 成本矩阵）
+
+{{ report.remediation.matrix|tojson }}
+
+
+合计 {{ report.remediation.total }} 项。
+
+## 八、复测对比
+
+| 版本 | SecScore | ASR | 基线通过率 |
+| --- | --- | --- | --- |
+{% for row in report.retest.versions %}  | {{ row.version }} | {{ row.sec_score }} | {{ '%.1f%%'|format(row.asr * 100) }} | {{ '%.1f%%'|format(row.baseline_pass_rate * 100) }} |
+{% endfor %}{% if report.retest.regression_failed %}
+> ⚠️ 检测到回归：SecScore 跌幅超过 5 分，门禁判定 fail（AC-11）。
+{% endif %}
+## 九、合规映射
+
+| 框架 | 命中条目 |
+| --- | --- |
+{% for row in report.compliance %}  | {{ row.framework }} | {{ row.matched|join('、') }} |
+{% endfor %}
+
+---
+
+*本报告由 XIAN AI Agent 红蓝对抗平台自动生成；所有演练均在隔离沙箱内完成，数据全部虚构。*

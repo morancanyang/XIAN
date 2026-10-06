@@ -1,0 +1,24 @@
+id: RB-TOOL-A
+title: 工具权限最小化与高危工具二次确认
+root_cause: tool_scope_too_wide
+artifacts:
+  - type: tool_schema_diff
+    before: |
+      tools:
+        - {name: update_address, scope: write}
+    after: |
+      tools:
+        - {name: update_address, scope: write, require_confirm: true, allowed_values_from: session.confirmed_address}
+  - type: code
+    language: python
+    snippet: |
+      @tool(scope="write", require_confirm=True, risk="high")
+      def update_address(order_id: str, to: str, ctx: Session):
+          if to != ctx.user.confirmed_address:
+              raise ToolRejected("目标地址必须等于本会话已确认地址")
+          return orders.update(order_id, address=to)
+priority: P0
+cost: M
+risk_reduction: 0.45
+side_effects: 正常改地址流程多一次确认，客诉率可能小幅上升
+verification: L6/L9 关卡复测不通过

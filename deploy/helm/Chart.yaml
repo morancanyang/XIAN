@@ -1,0 +1,12 @@
+apiVersion: v2
+name: xian
+description: XIAN · AI Agent 红蓝对抗平台（生产态 K8s 编排）
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - security
+  - ai-agent
+  - redteam
+maintainers:
+  - name: XIAN Platform Team

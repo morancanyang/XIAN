@@ -1,0 +1,11 @@
+{
+  "extends": "@xian/config/tsconfig.react-library.json",
+  "compilerOptions": {
+    "types": ["vite/client"],
+    "outDir": "dist",
+    "rootDir": "src",
+    "noEmit": false
+  },
+  "include": ["src"],
+  "exclude": ["src/**/*.stories.tsx", "src/**/*.test.tsx", "dist"]
+}

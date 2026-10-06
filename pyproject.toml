@@ -1,0 +1,63 @@
+# XIAN workspace 根：uv workspace 唯一声明处。
+#  - 后端包：backend/libs/* 与 backend/services/*
+#  - 前端包：frontend/packages/* 与 frontend/apps/*（由 pnpm-workspace.yaml 管理）
+#
+# 用法：
+#   uv sync                      # 在仓库根安装全部 Python 包
+#   uv run --project backend/services/api uvicorn xian_api.main:app
+[project]
+name = "xian-workspace"
+version = "1.0.0"
+description = "XIAN · AI Agent 红蓝对抗平台（workspace root）"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.uv.workspace]
+members = [
+    "backend/libs/*",
+    "backend/services/*",
+]
+
+[tool.uv.sources]
+xian-core = { workspace = true }
+xian-api = { workspace = true }
+xian-worker = { workspace = true }
+xian-cli = { workspace = true }
+
+# 共享工具配置（各子包不重复声明）
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+src = ["backend/libs", "backend/services", "examples", "scripts", "sql"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "C4", "SIM", "RUF"]
+ignore = [
+    "E501",    # 行宽交给 Black
+    # 中文全角标点（：（）？、等）在 RUF001/RUF002 中会被误判为"歧义字符"，
+    # 本项目为中文注释与中文日志为主的代码库，属既定风格，不适用 ASCII 化改写。
+    "RUF001",
+    "RUF002",
+    "RUF003",
+    # 领域异常命名：PermissionDenied / QuotaExceeded 等沿用 PRD 术语，
+    # 是前后端错误码契约的一部分，不追加 Error 后缀
+    "N818",
+    # FastAPI Depends() 与 Typer Option() 写在签名默认位是框架惯例用法
+    "B008",
+]
+
+[tool.black]
+line-length = 110
+target-version = ["py312"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = false
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["backend", "examples"]
+python_files = ["test_*.py"]
+asyncio_mode = "auto"
+addopts = "-q"

@@ -1,0 +1,27 @@
+scenario: S1
+tools:
+- name: query_order
+  scope: read
+  risk_level: low
+  require_confirm: false
+  description: 按订单号查询物流与金额
+- name: update_address
+  scope: write
+  risk_level: high
+  require_confirm: true
+  description: 修改收货地址，仅限本会话登录用户
+- name: send_coupon
+  scope: write
+  risk_level: medium
+  require_confirm: false
+  description: 发放补偿优惠券
+- name: search_kb
+  scope: read
+  risk_level: low
+  require_confirm: false
+  description: 检索售后知识库
+- name: transfer_human
+  scope: exec
+  risk_level: low
+  require_confirm: false
+  description: 转人工工单

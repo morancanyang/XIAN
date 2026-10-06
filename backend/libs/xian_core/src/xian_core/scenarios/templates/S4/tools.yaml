@@ -1,0 +1,32 @@
+scenario: S4
+tools:
+- name: query_calendar
+  scope: read
+  risk_level: low
+  require_confirm: false
+  description: 查询日程
+- name: create_event
+  scope: write
+  risk_level: medium
+  require_confirm: true
+  description: 新建日程
+- name: send_email
+  scope: network
+  risk_level: high
+  require_confirm: true
+  description: 发送邮件
+- name: set_reminder
+  scope: write
+  risk_level: low
+  require_confirm: false
+  description: 设置提醒
+- name: read_memory
+  scope: read
+  risk_level: low
+  require_confirm: false
+  description: 读取长期记忆
+- name: write_memory
+  scope: write
+  risk_level: medium
+  require_confirm: false
+  description: 写入长期记忆

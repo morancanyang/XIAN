@@ -1,0 +1,24 @@
+# XIAN LLM 网关预设（技术方案 7.2）
+# 自建 LiteLLM Proxy 时把本文件作为 config 启动：
+#   litellm --config backend/libs/xian_core/src/xian_core/llm/litellm.config.yaml
+# 然后把 XIAN_LLM_BASE_URL 指向该 Proxy 即可，四个角色共用一套 OpenAI 兼容入口。
+model_list:
+  - model_name: xian-redteam
+    litellm_params:
+      model: deepseek/deepseek-chat
+  - model_name: xian-target
+    litellm_params:
+      model: deepseek/deepseek-chat
+  - model_name: xian-judge
+    litellm_params:
+      model: deepseek/deepseek-chat
+  - model_name: xian-embedding
+    litellm_params:
+      model: text-embedding-3-small
+
+litellm_settings:
+  drop_params: true
+  telemetry: false
+
+general_settings:
+  master_key: os.environ/XIAN_LLM_API_KEY

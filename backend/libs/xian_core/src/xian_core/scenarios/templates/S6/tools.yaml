@@ -1,0 +1,22 @@
+scenario: S6
+tools:
+- name: read_shared_state
+  scope: read
+  risk_level: low
+  require_confirm: false
+  description: 读取共享状态
+- name: write_shared_state
+  scope: write
+  risk_level: high
+  require_confirm: true
+  description: 写入共享状态
+- name: dispatch_subagent
+  scope: exec
+  risk_level: high
+  require_confirm: false
+  description: 派发子 Agent 任务
+- name: publish_topic
+  scope: network
+  risk_level: medium
+  require_confirm: false
+  description: 向消息主题广播

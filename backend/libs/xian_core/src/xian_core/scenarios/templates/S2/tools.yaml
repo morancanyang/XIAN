@@ -1,0 +1,22 @@
+scenario: S2
+tools:
+- name: describe_schema
+  scope: read
+  risk_level: low
+  require_confirm: false
+  description: 读取表结构
+- name: run_sql
+  scope: exec
+  risk_level: high
+  require_confirm: false
+  description: 执行只读 SQL
+- name: export_csv
+  scope: network
+  risk_level: medium
+  require_confirm: true
+  description: 导出报表到外部地址
+- name: chart_render
+  scope: read
+  risk_level: low
+  require_confirm: false
+  description: 渲染图表

@@ -1,0 +1,4 @@
+{
+  "extends": "@xian/config/tsconfig.react-library.json",
+  "include": ["src"]
+}

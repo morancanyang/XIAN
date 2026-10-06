@@ -1,0 +1,150 @@
+/*
+ * 个人中心氛围层样式（深空 / 弥散 / 柔光 / 低对比度）。
+ * 仅作用于 /profile 的装饰层：不参与布局，全部 pointer-events / aria-hidden。
+ * 颜色一律取自 Design Token，透明度用 color-mix 派生，避免硬编码色值。
+ * 所有动画均可被「减弱动效」与系统 prefers-reduced-motion 降级。
+ */
+
+/* 段位进度环：弥散外发光 + 极缓呼吸 */
+.xian-ring-halo {
+  background:
+    radial-gradient(58% 52% at 50% 42%, color-mix(in srgb, var(--color-success) 26%, transparent), transparent 68%),
+    radial-gradient(42% 38% at 26% 58%, color-mix(in srgb, var(--color-blue-team) 24%, transparent), transparent 70%),
+    radial-gradient(48% 44% at 74% 46%, color-mix(in srgb, var(--color-nebula) 24%, transparent), transparent 70%);
+  filter: blur(38px);
+  opacity: 0.5;
+  animation: xian-ring-breathe 16s ease-in-out infinite;
+  will-change: opacity, transform;
+}
+
+@keyframes xian-ring-breathe {
+  0%,
+  100% {
+    opacity: 0.34;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.62;
+    transform: scale(1.035);
+  }
+}
+
+/* 圆环本体：边缘轻微高斯模糊，融入深空背景 */
+.xian-ring-soft {
+  filter: blur(2.5px);
+  animation: xian-ring-pulse 11s ease-in-out infinite;
+}
+
+@keyframes xian-ring-pulse {
+  0%,
+  100% {
+    opacity: 0.94;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* 圆环中心：星云弥散柔光，杜绝生硬亮斑 */
+.xian-nebula-core {
+  background: radial-gradient(
+    circle at 50% 50%,
+    color-mix(in srgb, var(--color-blue-team) 13%, transparent) 0%,
+    color-mix(in srgb, var(--bg-sunken) 62%, transparent) 42%,
+    transparent 72%
+  );
+  filter: blur(22px);
+}
+
+/* 底部扫描光带：两端渐变淡出 + 高斯虚化 + 低透明度 */
+/* 承载层：向上渐隐，使光带只出现在页面底部，不侵入主体内容区 */
+.xian-scan-layer {
+  -webkit-mask-image: linear-gradient(to top, #000 0%, rgb(0 0 0 / 0.55) 38%, transparent 100%);
+  mask-image: linear-gradient(to top, #000 0%, rgb(0 0 0 / 0.55) 38%, transparent 100%);
+}
+
+.xian-scan-band {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--color-blue-team) 42%, transparent) 20%,
+    color-mix(in srgb, var(--color-success) 34%, transparent) 50%,
+    color-mix(in srgb, var(--color-blue-team) 42%, transparent) 80%,
+    transparent 100%
+  );
+  filter: blur(12px);
+  opacity: 0.42;
+}
+
+/* 流动微光：缓慢通透的柔光斑，替代生硬实体线条 */
+.xian-scan-flow {
+  background: radial-gradient(
+    42% 100% at 50% 50%,
+    color-mix(in srgb, var(--color-success) 40%, transparent),
+    color-mix(in srgb, var(--color-blue-team) 16%, transparent) 55%,
+    transparent 78%
+  );
+  filter: blur(24px);
+  opacity: 0.55;
+  animation: xian-scan-drift 26s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes xian-scan-drift {
+  0% {
+    transform: translateX(-38%) scaleX(0.9);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translateX(38%) scaleX(1.12);
+    opacity: 0.85;
+  }
+  100% {
+    transform: translateX(-38%) scaleX(0.9);
+    opacity: 0.5;
+  }
+}
+
+/* 细碎粒子拖尾：弱化存在感的氛围点缀 */
+.xian-scan-motes {
+  background-image:
+    radial-gradient(1.5px 1.5px at 12% 62%, color-mix(in srgb, var(--color-success) 55%, transparent), transparent 100%),
+    radial-gradient(1px 1px at 27% 38%, color-mix(in srgb, var(--color-blue-team) 50%, transparent), transparent 100%),
+    radial-gradient(1.5px 1.5px at 44% 70%, color-mix(in srgb, var(--color-blue-team) 45%, transparent), transparent 100%),
+    radial-gradient(1px 1px at 61% 44%, color-mix(in srgb, var(--color-success) 45%, transparent), transparent 100%),
+    radial-gradient(1.5px 1.5px at 78% 66%, color-mix(in srgb, var(--color-blue-team) 40%, transparent), transparent 100%),
+    radial-gradient(1px 1px at 91% 40%, color-mix(in srgb, var(--color-success) 40%, transparent), transparent 100%);
+  filter: blur(0.6px);
+  opacity: 0.4;
+  animation: xian-mote-float 19s ease-in-out infinite;
+}
+
+@keyframes xian-mote-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0.24;
+  }
+  50% {
+    transform: translate3d(0, -10px, 0);
+    opacity: 0.5;
+  }
+}
+
+/* 减弱动效：与全局降级策略保持一致 */
+@media (prefers-reduced-motion: reduce) {
+  .xian-ring-halo,
+  .xian-ring-soft,
+  .xian-scan-flow,
+  .xian-scan-motes {
+    animation: none !important;
+  }
+}
+
+[data-reduced-motion='true'] .xian-ring-halo,
+[data-reduced-motion='true'] .xian-ring-soft,
+[data-reduced-motion='true'] .xian-scan-flow,
+[data-reduced-motion='true'] .xian-scan-motes {
+  animation: none !important;
+}
+

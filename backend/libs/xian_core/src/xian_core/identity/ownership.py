@@ -1,0 +1,123 @@
+"""归属校验（PRD 3.2.4.8.1 / AC-09）：证明"Agent 确实属于该租户"。
+
+两种方式：
+1. DNS TXT —— 用户在域名下添加 `xian-verify=<nonce>` 记录，平台解析比对；
+2. 镜像摘要 —— 用户提供镜像 digest，平台比对 registry 返回的 RepoDigests。
+"""
+
+from __future__ import annotations
+
+import re
+import secrets
+from typing import Any
+
+from ..errors import OwnershipNotVerified
+from ..schemas.common import OwnershipMethod, OwnershipResult
+
+TXT_PREFIX = "xian-verify="
+DIGEST_PATTERN = re.compile(r"^sha256:[a-f0-9]{64}$")
+
+
+def _injected_txt() -> dict[str, list[str]]:
+    import os
+
+    out: dict[str, list[str]] = {}
+    for chunk in (os.environ.get("XIAN_VERIFY_TXT") or "").split(";"):
+        chunk = chunk.strip()
+        if not chunk or "=" not in chunk:
+            continue
+        domain, _, raw = chunk.partition("=")
+        out[domain.strip().lower()] = [r.strip() for r in raw.split(",") if r.strip()]
+    return out
+
+
+def make_nonce() -> str:
+    """生成一次性校验值（verification_record.nonce）。"""
+    return secrets.token_hex(16)
+
+
+def build_dns_instruction(domain: str, nonce: str) -> dict[str, str]:
+    return {
+        "method": "dns_txt",
+        "domain": domain,
+        "record": f"{TXT_PREFIX}{nonce}",
+        "ttl": "600",
+        "hint": f"请在 {domain} 添加一条 TXT 记录，值为 {TXT_PREFIX}{nonce}，保存后重新触发校验。",
+    }
+
+
+def build_image_instruction(image: str, digest: str) -> dict[str, str]:
+    return {
+        "method": "image_digest",
+        "image": image,
+        "digest": digest,
+        "hint": f"请提供镜像 {image} 的不可变摘要（形如 sha256:<64位十六进制>），或允许平台读取仓库 RepoDigests。",
+    }
+
+
+def _resolve_txt(domain: str) -> list[str]:
+    # 本地/离线环境：允许通过 XIAN_VERIFY_TXT="域名=记录1;域名2=记录2" 注入预期 TXT，
+    # 便于在无公网 DNS 的演示与 CI 环境走通 AC-09 闭环（生产环境不设置该变量）。
+    injected = _injected_txt().get(domain.lower())
+    if injected:
+        return injected
+    try:
+        import dns.resolver  # dnspython 为可选依赖
+    except ImportError:  # pragma: no cover - 视部署环境而定
+        return []
+    try:
+        answers = dns.resolver.resolve(domain, "TXT")
+    except Exception:
+        return []
+    out: list[str] = []
+    for rdata in answers:
+        out.extend(s.decode("utf-8", "ignore") for s in rdata.strings)
+    return out
+
+
+def verify_dns(domain: str, nonce: str, *, expected: str | None = None) -> dict[str, Any]:
+    """DNS TXT 校验；无 dnspython 时退化为严格字面比对（供离线/测试环境）。"""
+    records = _resolve_txt(domain)
+    target = expected or f"{TXT_PREFIX}{nonce}"
+    matched = any(target in rec for rec in records)
+    return {
+        "method": OwnershipMethod.dns_txt.value,
+        "target": domain,
+        "nonce": nonce,
+        "result": OwnershipResult.verified.value if matched else OwnershipResult.failed.value,
+        "records_seen": len(records),
+    }
+
+
+def verify_image_digest(declared: str, observed: str | None = None) -> dict[str, Any]:
+    """镜像摘要校验：声明摘要与 registry 观测摘要必须完全一致。"""
+    if not DIGEST_PATTERN.match(declared or ""):
+        return {
+            "method": OwnershipMethod.image_digest.value,
+            "target": declared or "",
+            "result": OwnershipResult.failed.value,
+            "reason": "镜像摘要格式非法，应为 sha256:<64位十六进制>",
+        }
+    if observed is None:
+        return {
+            "method": OwnershipMethod.image_digest.value,
+            "target": declared,
+            "result": OwnershipResult.pending.value,
+            "reason": "等待 registry 观测摘要",
+        }
+    matched = declared == observed
+    return {
+        "method": OwnershipMethod.image_digest.value,
+        "target": declared,
+        "result": OwnershipResult.verified.value if matched else OwnershipResult.failed.value,
+        "observed": observed,
+    }
+
+
+def assert_verified(record: dict[str, Any]) -> None:
+    """未归属验证的 Agent 只能打内置场景，不能作为模式一目标（AC-09 前半）。"""
+    result = str(record.get("result", ""))
+    if result != OwnershipResult.verified.value:
+        raise OwnershipNotVerified(
+            f"归属校验未通过（{result}）：请按指引完成 DNS TXT 或镜像摘要校验后再作为演练目标"
+        )

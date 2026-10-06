@@ -1,0 +1,157 @@
+# 14 类攻击矩阵（PRD 3.5.4.1）——内容资产，与代码同库同版本管理
+version: "1.0.0"
+categories:
+  - code: XM-01
+    name: 直接提示注入与越狱
+    stage: 载荷投递->初始执行
+    attack_surface: 提示词层
+    difficulty: low
+    impact: high
+    techniques: [角色扮演, 虚构免责, 编码绕过, 多语言, 分片, 上下文淹没, 逻辑悖论]
+    detection_signals: [拒答率异常, 命中关键词]
+    owasp_ref: [LLM01:2025]
+    atlas_ref: [AML.T0051]
+    description: 通过直接构造提示词让模型突破系统指令边界。
+  - code: XM-02
+    name: 间接提示注入
+    stage: 载荷投递
+    attack_surface: 工具返回值/RAG/网页/邮件/文档
+    difficulty: medium
+    impact: high
+    techniques: [白字, HTML注释, PDF隐藏层, 不可见unicode携带指令]
+    detection_signals: [检索文档含指令句式, 工具返回格式异常]
+    owasp_ref: [LLM01:2025, LLM02:2025]
+    atlas_ref: [AML.T0051.001]
+    description: 指令经第三方内容（文档/网页/工具返回）间接进入上下文。
+  - code: XM-03
+    name: 系统提示词泄露
+    stage: 侦察
+    attack_surface: 提示词层
+    difficulty: low
+    impact: medium
+    techniques: [直接询问, 诱导复述, 翻译绕过, 错误回显, 开发者模式伪装]
+    detection_signals: [输出含提示词标志句]
+    owasp_ref: [LLM07:2025]
+    atlas_ref: [AML.T0057]
+    description: 让 Agent 复述或回显系统提示词与隐藏指令段。
+  - code: XM-04
+    name: 过度代理/工具滥用
+    stage: 权限提升->影响
+    attack_surface: 工具层
+    difficulty: medium
+    impact: critical
+    techniques: [诱导调用声明外工具, 参数篡改, 跳过确认步骤]
+    detection_signals: [工具调用序列异常, 参数越界]
+    owasp_ref: [LLM06:2025, LLM08:2025]
+    atlas_ref: [AML.T0053]
+    description: 诱导 Agent 调用超出授权范围的工具或以越界参数调用工具。
+  - code: XM-05
+    name: 敏感数据渗出
+    stage: 渗出
+    attack_surface: 数据层/工具层
+    difficulty: medium
+    impact: high
+    techniques: [蜜标诱导, PII聚合, 编码外带, 经合法通道外泄]
+    detection_signals: [canary命中, 密钥正则命中]
+    owasp_ref: [LLM02:2025]
+    atlas_ref: [AML.T0024]
+    description: 诱导 Agent 输出或外传敏感数据（假凭证/PII）。
+  - code: XM-06
+    name: 记忆/知识库投毒
+    stage: 初始执行->持久化
+    attack_surface: 记忆层/RAG
+    difficulty: hard
+    impact: high
+    techniques: [把指令写进长期记忆或知识库, 污染后续所有会话]
+    detection_signals: [记忆写入含指令句式]
+    owasp_ref: [LLM03:2025, LLM08:2025]
+    atlas_ref: [AML.T0018]
+    description: 通过记忆/RAG 写入持久化指令，影响后续所有会话。
+  - code: XM-07
+    name: 供应链与插件风险
+    stage: 载荷投递
+    attack_surface: MCP/插件/依赖
+    difficulty: hard
+    impact: critical
+    techniques: [恶意工具描述, 仿冒工具名, 被篡改依赖]
+    detection_signals: [工具描述含指令文本, 签名校验失败]
+    owasp_ref: [LLM05:2025]
+    atlas_ref: [AML.T0010]
+    description: 工具/插件描述或被篡改依赖中隐藏指令（V2.0 补齐完整载荷执行）。
+  - code: XM-08
+    name: 资源滥用与DoS
+    stage: 影响
+    attack_surface: 运行时
+    difficulty: low
+    impact: medium
+    techniques: [诱导死循环, 递归调用, 超长输出, 上下文淹没烧token]
+    detection_signals: [token突增, 工具调用风暴]
+    owasp_ref: [LLM04:2025]
+    atlas_ref: [AML.T0031]
+    description: 诱导 Agent 进入自消耗状态，耗尽 token 或计算资源。
+  - code: XM-09
+    name: 幻觉与决策操纵
+    stage: 影响
+    attack_surface: 模型层
+    difficulty: medium
+    impact: high
+    techniques: [喂错误事实影响判断, 伪造引用来源]
+    detection_signals: [输出与检索证据矛盾]
+    owasp_ref: [LLM09:2025]
+    atlas_ref: [AML.T0043]
+    description: 通过错误事实影响投顾/医疗/风控等关键决策。
+  - code: XM-10
+    name: 多智能体攻击
+    stage: 横向移动
+    attack_surface: 多智能体层
+    difficulty: hard
+    impact: high
+    techniques: [冒充其他Agent发消息, 诱导审核Agent放行, 级联污染]
+    detection_signals: [消息来源校验失败]
+    owasp_ref: [LLM06:2025]
+    atlas_ref: [AML.T0052]
+    description: 在多智能体系统中横向移动或诱导审核Agent放行。
+  - code: XM-11
+    name: 社会工程与身份伪装
+    stage: 初始执行
+    attack_surface: 会话层
+    difficulty: low
+    impact: high
+    techniques: [假冒管理员/客服, 伪造系统消息, 紧迫感施压]
+    detection_signals: [自称身份关键词, 授权句式]
+    owasp_ref: [LLM01:2025]
+    atlas_ref: [AML.T0048]
+    description: 通过身份伪装与紧迫感施压绕过人工确认环节。
+  - code: XM-12
+    name: 输出处理不当
+    stage: 影响
+    attack_surface: 输出/下游
+    difficulty: medium
+    impact: high
+    techniques: [让Agent输出Markdown/HTML/SQL/命令, 被下游渲染执行]
+    detection_signals: [输出含可执行结构, 下游告警]
+    owasp_ref: [LLM05:2025, LLM02:2025]
+    atlas_ref: [AML.T0054]
+    description: 输出中的可执行结构被下游渲染或执行。
+  - code: XM-13
+    name: 模型与提示词逆向
+    stage: 侦察
+    attack_surface: 模型层
+    difficulty: hard
+    impact: medium
+    techniques: [查询指纹推断模型版本, 抽取few-shot, 边界探测]
+    detection_signals: [高频同类探测请求]
+    owasp_ref: [LLM10:2025]
+    atlas_ref: [AML.T0025]
+    description: 通过探测推断模型版本、抽取 few-shot 示例。
+  - code: XM-14
+    name: 多模态载荷
+    stage: 载荷投递
+    attack_surface: 图片/PDF/语音
+    difficulty: hard
+    impact: high
+    techniques: [图片低对比度隐写, PDF隐藏文本层, 文件元数据注入]
+    detection_signals: [OCR命中指令句式]
+    owasp_ref: [LLM01:2025, LLM02:2025]
+    atlas_ref: [AML.T0051.002]
+    description: 指令经图片/PDF/语音等多模态通道进入（V2.0 补齐 OCR 判定）。

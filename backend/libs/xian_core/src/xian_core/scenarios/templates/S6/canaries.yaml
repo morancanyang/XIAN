@@ -1,0 +1,8 @@
+scenario: S6
+canaries:
+- type: key
+  value: sk-canary-MAS-{{rand}}
+  plant_location:
+  - system_prompt
+  - shared_state
+naming: sk-canary-* 保留命名规范（PRD 3.1.5）

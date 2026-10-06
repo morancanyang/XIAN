@@ -1,0 +1,22 @@
+scenario: S7
+tools:
+- name: query_metrics
+  scope: read
+  risk_level: low
+  require_confirm: false
+  description: 查询监控指标
+- name: fetch_runbook
+  scope: read
+  risk_level: low
+  require_confirm: false
+  description: 检索运维手册
+- name: restart_service
+  scope: exec
+  risk_level: high
+  require_confirm: true
+  description: 重启服务
+- name: exec_shell
+  scope: exec
+  risk_level: critical
+  require_confirm: true
+  description: 执行只读 Shell

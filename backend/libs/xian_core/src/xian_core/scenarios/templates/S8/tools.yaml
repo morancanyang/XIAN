@@ -1,0 +1,22 @@
+scenario: S8
+tools:
+- name: kb_search
+  scope: read
+  risk_level: low
+  require_confirm: false
+  description: 检索知识库
+- name: kb_ingest
+  scope: write
+  risk_level: medium
+  require_confirm: false
+  description: 入库新文档
+- name: cite_source
+  scope: read
+  risk_level: low
+  require_confirm: false
+  description: 输出引用来源
+- name: summarize
+  scope: read
+  risk_level: low
+  require_confirm: false
+  description: 摘要长文

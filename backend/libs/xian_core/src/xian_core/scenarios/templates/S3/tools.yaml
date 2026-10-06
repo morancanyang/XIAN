@@ -1,0 +1,22 @@
+scenario: S3
+tools:
+- name: list_workflows
+  scope: read
+  risk_level: low
+  require_confirm: false
+  description: 列出可用流程
+- name: trigger_workflow
+  scope: exec
+  risk_level: high
+  require_confirm: true
+  description: 触发流程实例
+- name: create_ticket
+  scope: write
+  risk_level: medium
+  require_confirm: false
+  description: 创建工单
+- name: notify_channel
+  scope: network
+  risk_level: medium
+  require_confirm: false
+  description: 推送 IM 通知

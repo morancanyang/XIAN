@@ -1,0 +1,34 @@
+{
+  "name": "xian-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "XIAN · AI Agent 红蓝对抗平台 frontend workspace",
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @xian/web dev",
+    "build": "pnpm --filter @xian/web build",
+    "preview": "pnpm --filter @xian/web preview",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm --filter @xian/web test",
+    "test:e2e": "pnpm --filter @xian/web test:e2e",
+    "storybook": "pnpm --filter @xian/ui storybook",
+    "codegen": "bash packages/types/scripts/generate.sh",
+    "smoke": "bash scripts/smoke.sh"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.5",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.8.0",
+    "@typescript-eslint/parser": "^8.8.0",
+    "eslint": "^9.12.0",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "eslint-plugin-react-refresh": "^0.4.12",
+    "prettier": "^3.3.3",
+    "typescript": "^5.6.3"
+  }
+}

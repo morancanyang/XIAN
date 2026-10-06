@@ -1,0 +1,32 @@
+id: RB-OPS-A
+title: 监控告警与熔断（工具审计 / 蜜标 / token 突增）
+root_cause: no_monitoring
+artifacts:
+  - type: config
+    snippet: |
+      monitoring:
+        tool_audit: true
+        canary_alert: true
+        circuit_breaker:
+          session_token_multiple: 3
+          session_tool_calls: 20
+          action: pause_and_alert
+  - type: code
+    language: python
+    snippet: |
+      class CircuitBreaker:
+          def __init__(self, baseline_tokens: int):
+              self.baseline = max(1, baseline_tokens)
+
+          def check(self, session: Session) -> None:
+              if session.tokens_used > self.baseline * 3:
+                  session.pause(reason="token \u5d29\u6ed1")
+                  alert("session_token_spike", session_id=session.id)
+              if len(session.tool_calls) > 20:
+                  session.pause(reason="tool_call_flood")
+                  alert("tool_call_flood", session_id=session.id)
+priority: P1
+cost: M
+risk_reduction: 0.25
+side_effects: 长任务需单独调高阈值
+verification: L10 关卡复测触发熔断
