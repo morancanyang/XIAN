@@ -73,7 +73,9 @@ class ScenarioOut(StrictModel):
 
 
 class InstanceCreate(StrictModel):
-    scenario_id: UUID
+    # 场景市场对外暴露的 id 是模板编码（S1/S2/...），不是 UUID；
+    # 声明成 UUID 会让前端的正常请求直接撞 422，实例化功能整体不可用。
+    scenario_id: str
     data_scale: int = Field(default=200, ge=1, le=10000)
     language: str = "zh-CN"
     canary_enhanced: bool = True

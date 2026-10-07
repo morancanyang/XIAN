@@ -18,7 +18,7 @@ from xian_core.scenarios import (
     canaries_for_payload,
     filter_templates,
     plant_canaries,
-    require_template,
+    resolve_template,
     scenario_summary,
 )
 from xian_core.schemas.scenario import InstanceCreate, ScenarioInstanceOut
@@ -39,6 +39,13 @@ async def market(
     return [scenario_summary(t.code) for t in filter_templates(difficulty=difficulty, tag=tag)]
 
 
+@router.get("/instances", response_model=list[ScenarioInstanceOut])
+async def list_instances(session: SessionDep, principal: PrincipalDep) -> list[ScenarioInstanceOut]:
+    repo = ScenarioInstanceRepository(session, principal.tenant_id)
+    rows = await repo.list_by(status="ready")
+    return [ScenarioInstanceOut.model_validate(r) for r in rows]
+
+
 @router.get("/{code}")
 async def detail(code: str, session: SessionDep, principal: PrincipalDep) -> dict[str, Any]:
     """场景详情：六要素 + 工具权限表 + 蜜标类型（不暴露值）+ 典型攻击链。"""
@@ -50,7 +57,7 @@ async def instantiate(
     payload: InstanceCreate, session: SessionDep, principal: Annotated[Principal, Depends(require("scenario:write"))]
 ) -> ScenarioInstanceOut:
     """选用场景并实例化：拉起环境 → 灌假数据 → 植入并登记蜜标 → 布设监控探针。"""
-    template = require_template(str(payload.scenario_id))
+    template = resolve_template(str(payload.scenario_id))
     fields = build_instance_payload(
         template=template,
         tenant_id=principal.tenant_id,
@@ -59,9 +66,11 @@ async def instantiate(
         canary_enhanced=payload.canary_enhanced,
     )
     row = await ScenarioInstanceRepository(session, principal.tenant_id).add(
-        ScenarioInstance(scenario_id=uuid.uuid5(uuid.NAMESPACE_URL, f"scenario:{template.code}"), **{
-            k: v for k, v in fields.items() if k not in {"scenario_id", "tenant_id"}
-        })
+        ScenarioInstance(
+            scenario_id=uuid.uuid5(uuid.NAMESPACE_URL, f"scenario:{template.code}"),
+            tenant_id=principal.tenant_id,
+            **{k: v for k, v in fields.items() if k not in {"scenario_id", "tenant_id"}},
+        )
     )
     planted = plant_canaries(template, instance_id=row.id, enhanced=payload.canary_enhanced)
     canary_repo = ScenarioCanaryRepository(session, principal.tenant_id)
@@ -133,10 +142,3 @@ async def destroy(instance_id: uuid.UUID, session: SessionDep, principal: Princi
         "kept_canaries": kept,
         "snapshot_id": str(row.seed_data_snapshot.get("generator_version", "")),
     }
-
-
-@router.get("/instances")
-async def list_instances(session: SessionDep, principal: PrincipalDep) -> list[ScenarioInstanceOut]:
-    repo = ScenarioInstanceRepository(session, principal.tenant_id)
-    rows = await repo.list_by(status="ready")
-    return [ScenarioInstanceOut.model_validate(r) for r in rows]

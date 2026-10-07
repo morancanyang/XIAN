@@ -1326,6 +1326,90 @@
       }
     },
     "/api/v1/scenarios/instances": {
+      "get": {
+        "tags": [
+          "scenarios"
+        ],
+        "summary": "List Instances",
+        "operationId": "list_instances_api_v1_scenarios_instances_get",
+        "parameters": [
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": "blue",
+              "title": "X-Role"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ScenarioInstanceOut"
+                  },
+                  "title": "Response List Instances Api V1 Scenarios Instances Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "tags": [
           "scenarios"
@@ -1401,90 +1485,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ScenarioInstanceOut"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "get": {
-        "tags": [
-          "scenarios"
-        ],
-        "summary": "List Instances",
-        "operationId": "list_instances_api_v1_scenarios_instances_get",
-        "parameters": [
-          {
-            "name": "x-tenant-id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Tenant-Id"
-            }
-          },
-          {
-            "name": "x-user-id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-User-Id"
-            }
-          },
-          {
-            "name": "x-role",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": "blue",
-              "title": "X-Role"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ScenarioInstanceOut"
-                  },
-                  "title": "Response List Instances Api V1 Scenarios Instances Get"
                 }
               }
             }
@@ -2170,13 +2170,106 @@
         }
       }
     },
+    "/api/v1/campaigns/preview-plan": {
+      "post": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "Preview Campaign Plan",
+        "description": "创建前预览战役计划：与正式计划同一套指挥官规则，但不落库（PRD 3.3.5.8.1）。",
+        "operationId": "preview_campaign_plan_api_v1_campaigns_preview_plan_post",
+        "parameters": [
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": "blue",
+              "title": "X-Role"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanPreviewIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignPlan"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/campaigns/{campaign_id}/plan": {
       "post": {
         "tags": [
           "campaigns"
         ],
         "summary": "Plan Campaign",
-        "description": "指挥官方生成战役计划：攻击面优先级 / 历史加权 / 阶段依赖 / 预算分配（PRD 3.3.5.8.1）。",
+        "description": "生成战役计划并落库，保证战役详情页 DAG 与执行使用同一份计划。",
         "operationId": "plan_campaign_api_v1_campaigns__campaign_id__plan_post",
         "parameters": [
           {
@@ -6855,13 +6948,415 @@
         }
       }
     },
+    "/api/v1/llm/status": {
+      "get": {
+        "tags": [
+          "llm"
+        ],
+        "summary": "Llm Status",
+        "description": "网关快照：是否在线、四角色模型路由、熔断状态、成本账。",
+        "operationId": "llm_status_api_v1_llm_status_get",
+        "parameters": [
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": "blue",
+              "title": "X-Role"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Llm Status Api V1 Llm Status Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/llm/providers": {
+      "get": {
+        "tags": [
+          "llm"
+        ],
+        "summary": "Llm Providers",
+        "description": "可选供应商预设，供管理端下拉选择。",
+        "operationId": "llm_providers_api_v1_llm_providers_get",
+        "parameters": [
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": "blue",
+              "title": "X-Role"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Llm Providers Api V1 Llm Providers Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/llm/probe": {
+      "post": {
+        "tags": [
+          "llm"
+        ],
+        "summary": "Llm Probe",
+        "description": "实时探测端点连通性：默认强制刷新，返回延迟与可用模型列表。",
+        "operationId": "llm_probe_api_v1_llm_probe_post",
+        "parameters": [
+          {
+            "name": "force",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Force"
+            }
+          },
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": "blue",
+              "title": "X-Role"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Llm Probe Api V1 Llm Probe Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/llm/config": {
+      "post": {
+        "tags": [
+          "llm"
+        ],
+        "summary": "Llm Config",
+        "description": "热更新接入配置（内存态，重启后回到 ``.env``）。保存后立即探测一次。",
+        "operationId": "llm_config_api_v1_llm_config_post",
+        "parameters": [
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "x-user-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "name": "x-role",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": "blue",
+              "title": "X-Role"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LLMConfigIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Llm Config Api V1 Llm Config Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Register",
+        "description": "自助注册：校验通过后直接签发 token，免去二次登录（PRD 3.9.4）。",
+        "operationId": "register_api_v1_auth_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "tags": [
           "auth"
         ],
         "summary": "Login",
-        "description": "开发态登录：任意邮箱 + 密码即可换取 token（生产态替换为真实身份源）。",
+        "description": "登录：已注册账号校验密码；未注册账号为开发态演示，任意密码均可登录（生产态替换为真实身份源）。",
         "operationId": "login_api_v1_auth_login_post",
         "requestBody": {
           "content": {
@@ -7376,7 +7871,6 @@
           "agent_id",
           "prompt_hash",
           "tools_snapshot",
-          "model_params",
           "diff_summary",
           "source",
           "created_at"
@@ -7993,7 +8487,10 @@
           },
           "budget_split": {
             "additionalProperties": {
-              "type": "integer"
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
             },
             "type": "object",
             "title": "Budget Split"
@@ -8019,7 +8516,8 @@
           "completed",
           "cancelled",
           "tripped",
-          "env_failed"
+          "env_failed",
+          "failed"
         ],
         "title": "CampaignStatus",
         "description": "PRD 2.2.4 战役状态机。"
@@ -8307,7 +8805,6 @@
         "properties": {
           "scenario_id": {
             "type": "string",
-            "format": "uuid",
             "title": "Scenario Id"
           },
           "data_scale": {
@@ -8365,6 +8862,51 @@
           "strict"
         ],
         "title": "JudgeMode"
+      },
+      "LLMConfigIn": {
+        "properties": {
+          "base_url": {
+            "type": "string",
+            "title": "Base Url",
+            "description": "OpenAI 兼容端点，例如 https://api.deepseek.com",
+            "default": ""
+          },
+          "api_key": {
+            "type": "string",
+            "title": "Api Key",
+            "description": "API Key；空字符串表示不修改",
+            "default": ""
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider",
+            "description": "供应商标识，留空按端点自动识别",
+            "default": ""
+          },
+          "redteam_model": {
+            "type": "string",
+            "title": "Redteam Model",
+            "default": ""
+          },
+          "target_model": {
+            "type": "string",
+            "title": "Target Model",
+            "default": ""
+          },
+          "judge_model": {
+            "type": "string",
+            "title": "Judge Model",
+            "default": ""
+          },
+          "embedding_model": {
+            "type": "string",
+            "title": "Embedding Model",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "LLMConfigIn",
+        "description": "运行时接入配置；留空的字段保持原值。"
       },
       "LevelOut": {
         "properties": {
@@ -8699,6 +9241,79 @@
           "total"
         ],
         "title": "Page[AttackRecordOut]"
+      },
+      "PlanPreviewIn": {
+        "properties": {
+          "agent_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Id"
+          },
+          "scope": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Scope",
+            "description": "勾选的攻击类别 XM-xx"
+          },
+          "intensity": {
+            "$ref": "#/components/schemas/Intensity",
+            "default": "standard"
+          },
+          "budget": {
+            "$ref": "#/components/schemas/Budget"
+          }
+        },
+        "type": "object",
+        "title": "PlanPreviewIn",
+        "description": "创建前预览计划入参：与 CampaignCreate 的作战字段保持一致。"
+      },
+      "RegisterIn": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "minLength": 3,
+            "title": "Email"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 6,
+            "title": "Password"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role",
+            "default": "blue"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "RegisterIn",
+        "description": "自助注册入参：邮箱即账号，密码至少 6 位（生产态由真实身份源接管）。"
       },
       "ReportOut": {
         "properties": {
