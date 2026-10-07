@@ -47,4 +47,8 @@ async def my_profile(session: SessionDep, principal: PrincipalDep) -> UserProfil
 
 @router.get("/achievements", response_model=list[AchievementOut])
 async def achievements(_session: SessionDep, _principal: PrincipalDep) -> list[AchievementOut]:
-    return [AchievementOut(**a) for a in achievement_catalog()]
+    # ACHIEVEMENTS 内容资产里字段名是 code，对外契约 AchievementOut 用的是 id，显式映射。
+    return [
+        AchievementOut(id=a["code"], name=a["name"], condition=a["condition"], rarity=a["rarity"])
+        for a in achievement_catalog()
+    ]

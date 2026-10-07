@@ -57,7 +57,7 @@ async def audit_logs(
     session: SessionDep, principal: Annotated[Principal, Depends(require("audit:read"))],
     action: str | None = None, limit: int = 100,
 ) -> list[dict[str, Any]]:
-    rows = await AuditRepository(session, principal.tenant_id).list(size=min(limit, 500))
+    rows = await AuditRepository(session, principal.tenant_id).list(limit=min(limit, 500), order_by="ts")
     return [
         {"id": str(r.id), "action": r.action, "target": r.target, "result": r.result,
          "ip": r.ip, "user_id": str(r.user_id) if r.user_id else None, "detail": r.detail}
