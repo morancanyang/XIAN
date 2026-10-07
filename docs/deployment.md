@@ -67,6 +67,18 @@ curl -s http://127.0.0.1:8000/api/v1/llm/status -H "X-Role: admin"
 管理端「管理 / 大模型接入」卡片也能在页面内粘贴 Key、热切换端点并即时探测；
 该写入只存在于服务进程内存，重启后回到 `.env` 配置。Key 在接口响应中只回显打码结果。
 
+#### 1.3.3 本地启动 API 的三种方式
+
+| 命令 | 是否加载 `.env` | 热重启 | 适用场景 |
+| --- | --- | --- | --- |
+| `python scripts/xian.py api` | 是 | 追加 `--reload` | 日常开发（推荐） |
+| `python scripts/serve_api.py` | 是 | 追加 `--reload` | 直接起服务，不经过 xian.py |
+| `uvicorn xian_api.main:app` | 否 | 自行加 `--reload` | 已用环境变量配好全部参数时 |
+
+`xian.py api` 与 `serve_api.py` 共用同一份本地配置：加载仓库根 `.env`、
+写死 SQLite DSN、放行 `5173/5174` 两个前端 dev 端口，并按需注入 `XIAN_VERIFY_TXT`。
+裸 `uvicorn` 不会做这些，所以它会读不到 `.env`、WS 握手也可能被 CORS 拦掉。
+
 #### 1.3.2 熔断降级
 
 连续 3 次调用失败后网关进入 5 分钟熔断窗口，期间所有角色直接走本地确定性回放
@@ -101,7 +113,7 @@ python scripts/xian.py smoke
 ```bash
 python scripts/xian.py test       # 后端 pytest
 python scripts/xian.py seed       # 导入 14 类用例 / 场景 / 矩阵 / 关卡 / Playbook
-python scripts/xian.py api        # FastAPI  http://127.0.0.1:8000  (docs: /docs)
+python scripts/xian.py api        # FastAPI  http://127.0.0.1:8000  (docs: /docs)，自动加载 .env
 python scripts/xian.py web        # 前端 dev server  http://127.0.0.1:5173
 python scripts/xian.py worker     # Celery worker（可选）
 python scripts/xian.py beat       # Celery beat（可选）

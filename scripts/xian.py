@@ -183,8 +183,11 @@ def cmd_seed() -> int:
 
 
 def cmd_api() -> int:
-    say("启动 FastAPI：http://127.0.0.1:8000  (docs: /docs)")
-    return run(backend_cmd(["uvicorn", "xian_api.main:app", "--reload", "--host", "127.0.0.1", "--port", "8000"]))
+    say("启动 FastAPI（本地开发配置：.env + CORS + SQLite），http://127.0.0.1:8000  (docs: /docs)")
+    say("追加 --reload 可在代码改动后自动重启")
+    # 委托 scripts/serve_api.py：那里统一负责加载 .env、CORS 白名单与 XIAN_VERIFY_TXT，
+    # 两条入口共享同一份配置，避免裸 uvicorn 起服务时读不到 .env。
+    return run([sys.executable, "scripts/serve_api.py", *sys.argv[2:]], cwd=ROOT)
 
 
 def cmd_worker() -> int:
