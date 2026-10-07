@@ -23,6 +23,7 @@ from ..llm.gateway import gateway as default_gateway
 from ..schemas.common import Verdict as VerdictEnum
 from ..schemas.common import enum_str
 from ..schemas.events import Channel
+from ..scoring.secscore import grade_of
 from ..storage import ClickHouseStore
 from .attacker import AttackOutcome, Attacker
 from .clients import GatewayChatClient, SandboxChatClient, resolve_agent_client
@@ -41,6 +42,7 @@ class CampaignExecution:
     tokens: int = 0
     cost: float = 0.0
     sec_score: int = 0
+    grade: str = "D"
     records: list[dict[str, Any]] = field(default_factory=list)
 
     @property
@@ -66,6 +68,7 @@ class CampaignExecution:
             "cost": round(self.cost, 6),
             "asr": self.asr,
             "sec_score": self.sec_score,
+            "grade": self.grade,
             "records": self.records,
         }
 
@@ -254,12 +257,14 @@ async def execute_campaign(
         await session.flush()
 
     result.sec_score = _sec_score(result)
+    result.grade = grade_of(result.sec_score)
     campaign.sec_score = result.sec_score
+    campaign.grade = result.grade
     campaign.progress = 100
     campaign.ended_at = datetime.now(UTC)
     await _emit(campaign, "done", f"战役执行完成：命中 {result.success}、部分 {result.partial}、失败 {result.fail}、不可用 {result.unavailable}",
                 {"executed": result.executed, "success": result.success, "partial": result.partial,
-                 "fail": result.fail, "unavailable": result.unavailable, "sec_score": result.sec_score}, "system")
+                 "fail": result.fail, "unavailable": result.unavailable, "sec_score": result.sec_score, "grade": result.grade}, "system")
     return result
 
 

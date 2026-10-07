@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button, Card, DataTable, Pagination, type Column } from '@xian/ui';
 import { PageHeader } from '../../components/ui/PageHeader';
-import { CampaignStatusBadge } from '../../components/ui/badges';
+import { CampaignStatusBadge, GradeBadge } from '../../components/ui/badges';
 import { TableSkeleton } from '../../components/ui/Loading';
 import { useCampaigns } from '../../lib/api/hooks';
 import { fmtDateTime } from '../../lib/utils/format';
@@ -30,6 +30,7 @@ export default function CampaignsPage() {
     { key: 'intensity', header: '强度', render: (c) => <span className="text-xs">{c.intensity}</span> },
     { key: 'status', header: '状态', render: (c) => <CampaignStatusBadge status={c.status} /> },
     { key: 'sec_score', header: 'SecScore', render: (c) => <span className="font-mono">{c.sec_score ?? '—'}</span> },
+    { key: 'grade', header: '等级', render: (c) => <GradeBadge grade={c.grade} /> },
     { key: 'progress', header: '进度', render: (c) => `${c.progress}%` },
     { key: 'created', header: '创建时间', render: (c) => <span className="text-xs">{fmtDateTime(c.created_at)}</span> }
   ];

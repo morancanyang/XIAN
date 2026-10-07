@@ -46,6 +46,21 @@ export const CampaignStatusBadge = ({ status }: { status: CampaignStatus }) => (
   <Badge tone={CAMPAIGN_TONE[status]}>{CAMPAIGN_STATUS_LABEL[status]}</Badge>
 );
 
+const GRADE_TONE: Record<string, BadgeTone> = {
+  S: 'success',
+  A: 'success',
+  B: 'blue',
+  C: 'warning',
+  D: 'danger'
+};
+
+export const GradeBadge = ({ grade }: { grade: string | null }) =>
+  grade ? (
+    <Badge tone={GRADE_TONE[grade] ?? 'neutral'}>{grade}</Badge>
+  ) : (
+    <span className="text-xs text-content-faint">—</span>
+  );
+
 export const VerdictBadge = ({ verdict, className }: { verdict: Verdict; className?: string }) => (
   <Badge tone={VERDICT_TONE[verdict]} className={className}>
     {VERDICT_LABEL[verdict]}

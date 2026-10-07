@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from .common import (
     CampaignStatus,
@@ -115,7 +115,13 @@ class CampaignOut(StrictModel):
     started_at: datetime | None = None
     ended_at: datetime | None = None
 
-
+    @model_validator(mode="after")
+    def _backfill_grade(self) -> CampaignOut:
+        """等级按 SecScore 回推，兼容早期只落了分、没落等级的历史战役。"""
+        if self.grade is None and self.sec_score is not None:
+            from ..scoring.secscore import grade_of
+            self.grade = grade_of(int(self.sec_score))
+        return self
 
 
 class MutationOpSpec(StrictModel):
