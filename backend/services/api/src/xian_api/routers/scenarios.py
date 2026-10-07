@@ -12,7 +12,7 @@ from xian_core.db.repositories import (
     ScenarioCanaryRepository,
     ScenarioInstanceRepository,
 )
-from xian_core.sandbox import scan_text
+from xian_core.sandbox import destroy_instance, provision_instance, scan_text
 from xian_core.scenarios import (
     build_instance_payload,
     canaries_for_payload,
@@ -72,9 +72,9 @@ async def instantiate(
             **{k: v for k, v in fields.items() if k not in {"scenario_id", "tenant_id"}},
         )
     )
-    planted = plant_canaries(template, instance_id=row.id, enhanced=payload.canary_enhanced)
+    canary_planted = plant_canaries(template, instance_id=row.id, enhanced=payload.canary_enhanced)
     canary_repo = ScenarioCanaryRepository(session, principal.tenant_id)
-    for canary in planted:
+    for canary in canary_planted:
         await canary_repo.add(
             ScenarioCanary(
                 tenant_id=principal.tenant_id,
@@ -86,6 +86,17 @@ async def instantiate(
                 status=canary["status"],
             )
         )
+    # 光落库不够：得把运行时真正拉起来，执行器才能按 instance_id 拿到客户端
+    provision_instance(
+        row.id,
+        template.dsl,
+        seed=fields.get("seed_data_snapshot") or {},
+        canaries=[
+            {"type": c["type"], "value": c["value"], "plant_location": list(c["plant_location"]),
+             "status": c["status"]}
+            for c in canary_planted
+        ],
+    )
     row.status = "ready"
     await session.commit()
     await session.refresh(row)
@@ -133,6 +144,7 @@ async def destroy(instance_id: uuid.UUID, session: SessionDep, principal: Princi
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "场景实例不存在")
     kept = len(await ScenarioCanaryRepository(session, principal.tenant_id).for_instance(instance_id))
+    destroy_instance(instance_id)
     row.status = "destroyed"
     await session.commit()
     return {

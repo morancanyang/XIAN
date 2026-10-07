@@ -86,8 +86,14 @@ def resolve_campaign_client(campaign: Campaign, agent: Any | None = None, runtim
     与模式二自由攻击（sessions.executor）走同一条解析规则，否则战役会永远落在离线回显上：
     跑得飞快，却拿不到任何真实观测。
     """
-    if campaign.scenario_instance_id is not None and runtime is not None:
-        return SandboxChatClient(runtime, str(campaign.scenario_instance_id))
+    from ..sandbox import client_for as sandbox_client_for
+
+    if campaign.scenario_instance_id is not None:
+        client = sandbox_client_for(campaign.scenario_instance_id)
+        if client is not None:
+            return client
+        if runtime is not None:
+            return SandboxChatClient(runtime, str(campaign.scenario_instance_id))
     if agent is not None:
         return resolve_agent_client(agent)
     return GatewayChatClient(default_gateway)

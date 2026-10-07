@@ -29,8 +29,19 @@ def utc_now_naive() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 
 
-def resolve_console_client(agent: Any) -> Any:
-    """按接入方式选择目标客户端（与模式一战役共用同一解析规则）。"""
+def resolve_console_client(agent: Any, session_row: Any = None) -> Any:
+    """按接入方式选择目标客户端（与模式一战役共用同一解析规则）。
+
+    会话关联了场景实例时优先走沙箱注册表：实例是 ``instantiate`` 现场 provision 的，
+    拿不到客户端才回退到 Agent 直连或 LLM 网关回放。
+    """
+    from ..sandbox import client_for as sandbox_client_for
+
+    instance_id = getattr(session_row, "scenario_instance_id", None)
+    if instance_id is not None:
+        client = sandbox_client_for(instance_id)
+        if client is not None:
+            return client
     return resolve_agent_client(agent)
 
 
@@ -108,7 +119,7 @@ async def run_console_turn(
         await _emit(session_id, "alert", outcome.error, {"case_id": case_id}, "system")
         return outcome
 
-    client = resolve_console_client(agent)
+    client = resolve_console_client(agent, session_row)
     try:
         reply = await client.chat(payload, session_id=str(session_id))
     except Exception as exc:  # 目标不可达不应让整次发送失败

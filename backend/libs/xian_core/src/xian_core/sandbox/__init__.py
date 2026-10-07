@@ -11,6 +11,15 @@ from .network import (
 )
 from .pool import PooledInstance, SandboxPool, require_pool_slot
 from .runtime import DockerRuntime, compose_file_for, docker_available
+from .registry import (
+    active_instances,
+    client_for,
+    destroy_instance,
+    get_runtime,
+    instance_for,
+    provision_instance,
+)
+from .registry import reset as reset_registry
 from .snapshot import Snapshot, fingerprint, load, make_snapshot, persist, teardown_report
 
 __all__ = [
@@ -24,6 +33,13 @@ __all__ = [
     "PooledInstance",
     "SandboxPool",
     "Snapshot",
+    "active_instances",
+    "client_for",
+    "destroy_instance",
+    "get_runtime",
+    "instance_for",
+    "provision_instance",
+    "reset_registry",
     "assert_no_real_credential",
     "compose_file_for",
     "docker_available",

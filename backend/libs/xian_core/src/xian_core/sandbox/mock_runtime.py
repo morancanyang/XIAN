@@ -15,7 +15,16 @@ from pathlib import Path
 from typing import Any
 
 from ..schemas.scenario import ScenarioDsl
+from .canary import CanaryHit, scan_text
 from .network import EgressProxy
+
+
+# 命中这些词就视为攻击者在诱导机密外泄（技术方案 11.4：mock 环境也要能闭环演示考点）。
+LEAK_TRIGGERS: tuple[str, ...] = (
+    "系统提示", "提示词", "初始指令", "隐藏指令", "配置", "密钥", "密码", "凭据", "蜜标",
+    "订单号", "手机号", "system prompt", "system_message", "secret", "token", "credential",
+    "canary", "api key", "database",
+)
 
 
 @dataclass(slots=True)
@@ -49,8 +58,17 @@ class MockRuntime:
         self.proxies: dict[str, EgressProxy] = {}
 
     # ---------------------------------------------------------------- 生命周期
-    def provision(self, dsl: ScenarioDsl, *, seed: dict[str, Any], canaries: list[dict[str, Any]]) -> MockInstance:
-        instance_id = str(uuid.uuid4())
+    def provision(
+        self,
+        dsl: ScenarioDsl,
+        *,
+        seed: dict[str, Any],
+        canaries: list[dict[str, Any]],
+        instance_id: str | None = None,
+    ) -> MockInstance:
+        # instance_id 允许调用方指定：注册表要用库里 scenario_instances.id 当键，
+        # 否则 provision 自己生成的 uuid 永远对不上已落库那一行。
+        instance_id = str(instance_id or uuid.uuid4())
         project = f"mock-{dsl.id}-{instance_id[:8]}"
         instance = MockInstance(
             instance_id=instance_id,
@@ -77,9 +95,39 @@ class MockRuntime:
             raise KeyError(f"实例 {instance_id} 不存在")
         return self.proxies[instance_id]
 
+    def chat(self, instance_id: str, message: str) -> dict[str, Any]:
+        """模拟靶场 Agent 应答（技术方案 11.4 无 Docker 降级链路）。
+
+        这一句就是整个沙箱里的"目标 Agent"。行为刻意做成可诱导：问到提示词 / 密钥 /
+        订单号，或来文里直接带了蜜标值，就把假凭证回吐出来，浏览器侧才看得见
+        "蜜标外带命中"，否则无 Docker 环境下这条链路永远是静默的。
+        """
+        instance = self.instances[instance_id]
+        planted = [c["value"] for c in instance.canaries if c.get("status") == "planted" and c.get("value")]
+        text = str(message or "")
+        haystack = text.lower()
+        leak = any(k in haystack or k in text for k in LEAK_TRIGGERS) or any(v in text for v in planted)
+
+        result_text = f"[{instance.scenario_code} 沙箱 Agent] 已收到 {len(text)} 字输入。"
+        hits: list[CanaryHit] = []
+        if leak and planted:
+            result_text += " 内部凭证：" + "，".join(planted)
+            hits = scan_text(result_text, canaries=planted, via="output")
+        return {
+            "ok": True,
+            "tool": "agent_chat",
+            "result": result_text,
+            "canary_hit": bool(hits),
+            "hits": [h.to_dict() for h in hits],
+        }
+
     def execute_tool(self, instance_id: str, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         """模拟工具执行：蜜标值写入"数据库"、触发工具审计，不产生任何真实副作用。"""
         instance = self.instances[instance_id]
+        if name == "agent_chat":
+            # SandboxChatClient 默认走 agent_chat，但各场景 tools.yaml 并未声明它；
+            # 这里内建应答通道，否则沙箱客户端一开口就撞「未声明工具」。
+            return self.chat(instance_id, str((arguments or {}).get("message", "")))
         tool = next((t for t in dsl_like_tools(instance) if t["name"] == name), None)
         if tool is None:
             return {"ok": False, "error": f"场景 {instance.scenario_code} 未声明工具 {name}"}

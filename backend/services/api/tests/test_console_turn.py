@@ -68,7 +68,7 @@ async def test_console_turn_persists_reply_verdict_and_card(monkeypatch):
     from xian_core.sessions import executor
     from xian_core.sessions.executor import run_console_turn
 
-    monkeypatch.setattr(executor, "resolve_console_client", lambda agent: _FakeClient())
+    monkeypatch.setattr(executor, "resolve_console_client", lambda agent, session_row=None: _FakeClient())
     tenant_id = uuid4()
     maker = await _fresh_session()
     async with maker() as db:
@@ -102,7 +102,7 @@ async def test_console_turn_degrades_when_target_unreachable(monkeypatch):
     from xian_core.sessions import executor
     from xian_core.sessions.executor import run_console_turn
 
-    monkeypatch.setattr(executor, "resolve_console_client", lambda agent: _DownClient())
+    monkeypatch.setattr(executor, "resolve_console_client", lambda agent, session_row=None: _DownClient())
     tenant_id = uuid4()
     maker = await _fresh_session()
     async with maker() as db:
@@ -124,7 +124,7 @@ async def test_send_message_http_roundtrip(monkeypatch):
     from xian_api.main import app
     from xian_core.sessions import executor
 
-    monkeypatch.setattr(executor, "resolve_console_client", lambda agent: _FakeClient())
+    monkeypatch.setattr(executor, "resolve_console_client", lambda agent, session_row=None: _FakeClient())
     with TestClient(app) as client:
         headers = {"X-Tenant-Id": "11111111-1111-1111-1111-111111111111",
                    "X-User-Id": "22222222-2222-2222-2222-222222222222", "X-Role": "admin"}

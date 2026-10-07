@@ -28,6 +28,7 @@ import {
   useCreateSession,
   useMatrixCases,
   useMatrixCategories,
+  useScenarioInstances,
   useSendMessage,
   useSessionMessages
 } from '../../lib/api/hooks';
@@ -46,6 +47,7 @@ export default function AttackConsolePage() {
   const toast = useToast();
 
   const agents = useAgents({ page: 1, size: 100 });
+  const instances = useScenarioInstances();
   const categories = useMatrixCategories();
   const cases = useMatrixCases();
   const messages = useSessionMessages(sessionId);
@@ -53,6 +55,7 @@ export default function AttackConsolePage() {
   const send = useSendMessage();
 
   const [agentId, setAgentId] = useState(activeAgentId ?? '');
+  const [instanceId, setInstanceId] = useState('');
   const [draft, setDraft] = useState('');
   const [selectedCaseId, setSelectedCaseId] = useState('');
   const [pendingCase, setPendingCase] = useState<{ id: string; title: string } | null>(null);
@@ -73,7 +76,12 @@ export default function AttackConsolePage() {
       return null;
     }
     try {
-      const created = await createSession.mutateAsync({ agent_id: agentId, mode: 'console', goal: '自由攻击' });
+      const created = await createSession.mutateAsync({
+        agent_id: agentId,
+        scenario_instance_id: instanceId || null,
+        mode: 'console',
+        goal: '自由攻击'
+      });
       setActiveSession(created.id);
       /* 落到带 id 的路由上：否则 useParams 取不到会话，消息列表与 WS 流都不会订阅 */
       navigate(`/console/${created.id}`, { replace: true });
@@ -195,6 +203,25 @@ export default function AttackConsolePage() {
                       {agents.data?.items.map((a) => (
                         <SelectItem key={a.id} value={a.id}>
                           {a.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field
+                  label="关联场景实例"
+                  id="c-instance"
+                  hint="选中沙箱实例后，载荷会打到实例内的靶场 Agent；留空则直连所选 Agent。"
+                >
+                  <Select value={instanceId} onValueChange={setInstanceId}>
+                    <SelectTrigger id="c-instance">
+                      <SelectValue placeholder="不关联" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">不关联</SelectItem>
+                      {(instances.data ?? []).map((i) => (
+                        <SelectItem key={i.id} value={i.id}>
+                          {i.id.slice(0, 12)}（{i.status}）
                         </SelectItem>
                       ))}
                     </SelectContent>
