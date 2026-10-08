@@ -106,6 +106,10 @@ def build_plan(
         (c for c in load_categories() if c.code in scope),
         key=lambda c: -_weight(c.code, surface, history),
     )
+    # 预算比类别数还小时只保留权重最高的若干类：每类至少 1 条是用例底线，
+    # 否则后面 max(1, ...) 会把预算撑爆，DAG 上的用例总数和 budget.cases 对不上。
+    if 0 < budget.cases < len(categories):
+        categories = categories[:budget.cases]
     nodes: list[DagNode] = []
     edges: list[list[str]] = []
     for cat in categories:
@@ -128,15 +132,50 @@ def build_plan(
 
     total_weight = sum(n.weight for n in nodes) or 1.0
     scaled_token = int(budget.token * profile["budget_factor"])
-    for node in nodes:
-        share = round(node.weight / total_weight, 4)
+    # 权重比例直接取整会丢份额，max(1, ...) 又会向上溢出，
+    # DAG 上的用例总数于是既不等于预算也可能超支。
+    # 这里用最大余额法把 cases 整数分完，
+    # 让 DAG 的用例总数恰好等于 budget.cases，执行器才能照单执行。
+    shares = [budget.cases * node.weight / total_weight for node in nodes]
+    allocation = [max(1, int(share)) for share in shares]
+    leftover = budget.cases - sum(allocation)
+    if leftover > 0:
+        by_remainder = sorted(range(len(nodes)), key=lambda idx: -(shares[idx] - int(shares[idx])))
+        for idx in by_remainder[:leftover]:
+            allocation[idx] += 1
+    elif leftover < 0:
+        by_share = sorted(range(len(nodes)), key=lambda idx: shares[idx])
+        cursor = 0
+        while leftover < 0 and cursor < len(by_share):
+            idx = by_share[cursor]
+            if allocation[idx] > 1:
+                allocation[idx] -= 1
+                leftover += 1
+            else:
+                cursor += 1
+    # 类别里的用例可能不够分：把超出可用量的份额回收，再按权重分给还有余量的类别。
+    # 不锡的话 DAG 的用例总数会大于实际能跑的条数，执行清单又不准了。
+    available = {node.category_code: len(cases_by_category(node.category_code)) for node in nodes}
+    allocation = [min(count, available[node.category_code]) for node, count in zip(nodes, allocation)]
+    remaining = budget.cases - sum(allocation)
+    while remaining > 0:
+        headroom = [
+            idx
+            for idx in sorted(range(len(nodes)), key=lambda i: -shares[i])
+            if allocation[idx] < available[nodes[idx].category_code]
+        ]
+        if not headroom:
+            break
+        allocation[headroom[0]] += 1
+        remaining -= 1
+    for node, cases, share in zip(nodes, allocation, shares):
         node.budget_split = {
-            "token": int(scaled_token * share),
-            "cases": max(1, int(budget.cases * share)),
+            "token": int(scaled_token * round(node.weight / total_weight, 4)),
+            "cases": cases,
             "max_turns": profile["max_turns"],
         }
         # 节点上带出该类别实际会跑的用例：DAG 不只是几张卡片，而是可核对的执行清单
-        node.case_ids = [c.case_id for c in cases_by_category(node.category_code)][: node.budget_split["cases"]]
+        node.case_ids = [c.case_id for c in cases_by_category(node.category_code)][:cases]
     return {
         "dag_nodes": [n.model_dump(mode="json") for n in nodes],
         "edges": edges,

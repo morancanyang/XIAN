@@ -16,7 +16,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..bus import bus, make_event
-from ..cases import select_cases
+from ..cases import get_case, select_cases
 from ..db.repositories import AgentRepository
 from ..db.models import AttackRecord, Campaign, Verdict
 from ..llm.gateway import gateway as default_gateway
@@ -100,6 +100,33 @@ def resolve_campaign_client(campaign: Campaign, agent: Any | None = None, runtim
     return GatewayChatClient(default_gateway)
 
 
+def _planned_cases(campaign: Campaign) -> list[Any]:
+    """按落库的 DAG 计划取用例，按节点顺序（权重降序）返回。
+
+    计划缺失、或里面的用例 ID 已下线/删除时返回空列表，
+    由调用方回退到 select_cases。
+    """
+    dag = dict(campaign.plan_dag or {})
+    nodes = dag.get("dag_nodes") or []
+    if not isinstance(nodes, list):
+        return []
+    out: list[Any] = []
+    seen: set[str] = set()
+    for node in nodes:
+        if not isinstance(node, dict):
+            continue
+        for case_id in node.get("case_ids") or []:
+            key = str(case_id or '')
+            if not key or key in seen:
+                continue
+            case = get_case(key)
+            if case is None or case.status != "published":
+                continue
+            seen.add(key)
+            out.append(case)
+    return out
+
+
 async def execute_campaign(
     campaign: Campaign,
     *,
@@ -119,9 +146,14 @@ async def execute_campaign(
     max_cases = int(limit or budget.get("cases", 30) or 30)
     max_tokens = int(budget.get("token", 200000) or 200000)
 
-    cases = select_cases(categories=list(campaign.scope) or None, limit=max_cases)
+    # 指挥官按攻击面优先级与历史战绩把预算切到每个类别（PRD 3.3.5.8.1 规则①②），
+    # 执行器必须照单执行。之前这里另跑一套 select_cases，
+    # 该算的权重再准也一条都不会影响实际打到哪里，详情页那份“可核对的执行清单”只是装饰。
+    cases = _planned_cases(campaign)[:max_cases]
     if not cases:
-        cases = select_cases(limit=max_cases)
+        cases = select_cases(categories=list(campaign.scope) or None, limit=max_cases)
+        if not cases:
+            cases = select_cases(limit=max_cases)
 
     result = CampaignExecution(campaign_id=str(campaign.id))
     values = list(canary_values or (campaign.constraints or {}).get("canary_values", []) or [])
