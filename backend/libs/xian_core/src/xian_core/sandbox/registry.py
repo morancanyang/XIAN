@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import threading
+import uuid
 from collections.abc import Iterable
 from typing import Any
 
@@ -89,6 +90,41 @@ def destroy_instance(instance_id: Any) -> dict[str, Any] | None:
     if inner is None:
         return None
     return get_runtime().destroy(inner)
+
+
+def resume_from_db(rows: Iterable[Any]) -> int:
+    """按库里的实例记录重建运行时，返回成功恢复的条数。
+
+    注册表是进程级内存态：API 一重启，上次 provision 的实例就全丢了，
+    而库里这些实例还挂着 ``status='ready'``。此时再打战役/会话就会退化成
+    "Agent 直连"甚至连接失败——现象就是"明明建过实例却打不通"。
+    这里用库里的 seed 快照与蜜标台账把运行时重新拉起来，蜜标值与首次一致。
+    """
+    from ..scenarios import load_templates
+
+    code_of = {_scenario_uuid(t.code): t for t in load_templates()}
+    resumed = 0
+    for row in rows:
+        template = code_of.get(str(getattr(row, "scenario_id", "")))
+        if template is None:
+            continue
+        canaries = [
+            {"type": c.type, "value": c.value, "plant_location": list(c.plant_location), "status": c.status}
+            for c in (getattr(row, "canaries", None) or [])
+        ]
+        provision_instance(
+            row.id,
+            template.dsl,
+            seed=dict(getattr(row, "seed_data_snapshot", None) or {}),
+            canaries=canaries,
+        )
+        resumed += 1
+    return resumed
+
+
+def _scenario_uuid(code: str) -> str:
+    """与 scenarios 路由一致的场景编码 -> UUID 派生规则。"""
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, f"scenario:{code}"))
 
 
 def active_instances() -> list[MockInstance]:

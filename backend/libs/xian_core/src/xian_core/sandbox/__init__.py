@@ -18,6 +18,7 @@ from .registry import (
     get_runtime,
     instance_for,
     provision_instance,
+    resume_from_db,
 )
 from .registry import reset as reset_registry
 from .snapshot import Snapshot, fingerprint, load, make_snapshot, persist, teardown_report
@@ -40,6 +41,7 @@ __all__ = [
     "instance_for",
     "provision_instance",
     "reset_registry",
+    "resume_from_db",
     "assert_no_real_credential",
     "compose_file_for",
     "docker_available",

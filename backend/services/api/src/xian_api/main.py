@@ -38,6 +38,48 @@ logger = logging.getLogger("xian.api")
 settings = get_settings()
 
 
+async def _resume_sandbox_instances() -> None:
+    """按库里的 ready 实例重建沙箱运行时。
+
+    注册表是进程级内存态，API 重启后上次 provision 的实例就没了，而库里的实例
+    还挂着 ready：此时战役/会话会退化成 Agent 直连，表现为"建过实例却打不通"。
+    开发态（无 Docker）这里能把链路救回来；生产态由 DockerRuntime 另行适配。
+    """
+    from types import SimpleNamespace
+
+    from sqlalchemy import select
+
+    from xian_core.db.models import ScenarioInstance
+    from xian_core.db.repositories import ScenarioCanaryRepository
+    from xian_core.db.session import get_sessionmaker
+    from xian_core.sandbox import resume_from_db
+
+    try:
+        maker = get_sessionmaker()
+        async with maker() as session:
+            rows = (
+                (await session.execute(select(ScenarioInstance).where(ScenarioInstance.status == "ready")))
+                .scalars()
+                .all()
+            )
+            payload = []
+            for row in rows:
+                canaries = await ScenarioCanaryRepository(session, row.tenant_id).for_instance(row.id)
+                payload.append(
+                    SimpleNamespace(
+                        id=row.id,
+                        scenario_id=row.scenario_id,
+                        seed_data_snapshot=row.seed_data_snapshot,
+                        canaries=list(canaries),
+                    )
+                )
+            resumed = resume_from_db(payload)
+        if resumed:
+            logger.info("沙箱实例已按库恢复：%d 个", resumed)
+    except Exception as exc:  # pragma: no cover - 恢复失败不影响服务启动
+        logger.warning("沙箱实例恢复跳过（%s）", exc)
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     logging.basicConfig(level=logging.INFO)
@@ -46,6 +88,7 @@ async def lifespan(_: FastAPI):
         logger.info("PostgreSQL chema ready")
     except Exception as exc:  # pragma: no cover - 开发态无库时优雅降级
         logger.warning("数据库初始化跳过（%s），仅提供只读与静态接口", exc)
+    await _resume_sandbox_instances()
     bus.connect()
     try:
         yield
