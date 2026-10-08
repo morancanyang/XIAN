@@ -34,6 +34,7 @@ python -m xian_demo_agent.server --port 9001
 | --- | --- | --- |
 | `XIAN_DEMO_NONCE` | `xian-demo-nonce` | 归属校验演示 nonce |
 | `XIAN_DEMO_TOKEN` | `demo-canary-token` | 开启鉴权时使用的假 token |
+| `XIAN_DEMO_CANARY` | `sk-canary-demo0001` | 系统提示词里逐字携带的蜜标，泄露时随提示词一并输出 |
 | `XIAN_DEMO_REQUIRE_AUTH` | 关 | 置 `1` 后 `/chat` 要求 `Authorization: Bearer` |
 | `XIAN_DEMO_LATENCY_MS` | `40` | 模拟延迟，用于演示 P50/P99 统计 |
 | `XIAN_DEMO_FAIL_RATE` | `0.0` | 模拟故障率，用于排障文案演示 |
@@ -47,7 +48,7 @@ python -m xian_demo_agent.server --port 9001
 | `xian_demo_agent/sdk.py` | SDK 接入方式（进程内回调） |
 | `agent.py` | 便捷启动入口，等价 `python -m xian_demo_agent.server` |
 | `docker/` | 容器接入方式（`image_digest` 归属校验）的镜像 |
-| `test_demo_agent.py` | 13 条自检测试，无需启动服务 |
+| `test_demo_agent.py` | 15 条自检测试，无需启动服务 |
 
 ## 三种接入方式示例
 

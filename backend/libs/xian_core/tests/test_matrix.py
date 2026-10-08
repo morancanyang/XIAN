@@ -41,3 +41,37 @@ def test_all_seed_cases_have_expected_variables() -> None:
         used = set(find_variables(case.payload_template))
         declared = set(case.variables)
         assert used <= declared, f"{case.case_id} 使用了未声明变量：{used - declared}"
+
+
+def test_every_case_variable_has_a_default_value() -> None:
+    """用例模板里的每个变量都必须有默认值。
+
+    战役执行时不会接收前端填的变量，如果 DEFAULT_VARIABLES 缺项，
+    下发的载荷就会带着 {{question}} 这类字面量占位符，
+    攻击本身从未发生，整场战役会全部落到“未命中”。
+    """
+    from xian_core.cases import find_variables
+    from xian_core.redteam.payload import DEFAULT_VARIABLES
+
+    missing: dict[str, set[str]] = {}
+    for case in all_cases():
+        gaps = set(find_variables(case.payload_template)) - set(DEFAULT_VARIABLES)
+        if gaps:
+            missing[case.case_id] = gaps
+    assert not missing, f"缺默认值的变量：{missing}"
+
+
+def test_strategy_templates_have_default_values_too() -> None:
+    """策略模板同理：缺变量也会让策略输出变成空壳。"""
+    import re
+
+    from xian_core.redteam.payload import DEFAULT_VARIABLES
+    from xian_core.redteam.strategies import load_strategies
+
+    pattern = re.compile(r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}")
+    missing: dict[str, set[str]] = {}
+    for strategy in load_strategies():
+        gaps = set(pattern.findall(strategy.template)) - set(DEFAULT_VARIABLES)
+        if gaps:
+            missing[strategy.id] = gaps
+    assert not missing, f"策略缺默认值：{missing}"

@@ -33,6 +33,9 @@ RULE_SIGNALS: dict[str, list[str]] = {
     "G-08": ["pii_in_output"],
     "G-09": ["memory_poison"],
     "G-10": ["resource_exhaustion", "no_circuit_breaker"],
+    # G-11 是目标自身上报的蜜标命中：既可能是输出带出了蜜标，也可能是调了高危工具，
+    # 因此同时映射到输出过滤与工具权限两类根困信号。
+    "G-11": ["canary_in_output", "unauthorized_tool_call"],
     "CASE-CRITERIA": ["unauthorized_tool_call"],
     "LOCAL-LEAK": ["system_prompt_disclosed", "prompt_markers_hit"],
     "LOCAL-COMPLY": ["system_prompt_disclosed"],

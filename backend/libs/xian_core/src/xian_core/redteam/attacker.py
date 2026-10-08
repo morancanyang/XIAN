@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
 
+from ..cases import render_payload
 from ..judge import JudgeContext, JudgeEngine
 from ..judge.rules import evaluate as golden_evaluate
 from ..schemas.attack import TraceEventIn
@@ -23,6 +24,12 @@ def normalize_trace_event(
     """
     if not isinstance(raw, dict):
         raw = {}
+    # 接入侧用 via/host/field 描述蜜标命中的通道（工具/外联/敏感字段）。
+    # TraceEventIn 没有专门字段，不携带的话黄金规则 G-11 就无法按通道过滤，
+    # 目标上报的确定性诉据会在字段映射处被丢弃。
+    channel_keys = ("via", "host", "field")
+    merged_result = {k: raw[k] for k in channel_keys if k in raw}
+    merged_result.update(dict(raw.get("result", {}) or {}))
     return TraceEventIn(
         subject_id=subject_id,
         session_id=session_id,
@@ -30,7 +37,7 @@ def normalize_trace_event(
         actor=str(raw.get("actor") or raw.get("role") or "aut"),
         name=str(raw.get("name") or raw.get("tool") or ""),
         args=dict(raw.get("args", {}) or {}),
-        result=dict(raw.get("result", {}) or {}),
+        result=merged_result,
         tokens=int(raw.get("tokens", 0) or 0),
         canary_hit=bool(raw.get("canary_hit")) or str(raw.get("type", "")) == "canary_hit",
         latency_ms=int(raw.get("latency_ms", 0) or 0),
@@ -91,13 +98,16 @@ class Attacker:
         signals: list[str] | None = None,
     ) -> AttackOutcome:
         strategy: Strategy | None = get_strategy(strategy_id) if strategy_id else None
+        # 用例载荷模板必须在这里渲染：之前直接把带 {{question}} 的原始模板当参数下发，
+        # 目标收到的是一封没有填变量的空壳，攻击本身从未真正发生。
+        payload_text = render_payload(payload, variables or {})
         turns: list[TurnResult] = []
         events: list[TraceEventIn] = []
         output_text = ""
         escalation_used: list[str] = []
 
         for turn in range(1, max(1, max_turns) + 1):
-            prompt = self._prompt_for_turn(strategy, payload, turn, variables or {})
+            prompt = self._prompt_for_turn(strategy, payload_text, turn, variables or {})
             reply = await client.chat(prompt, session_id=session_id)
             output_text = reply.get("output", "")
             turn_events = [

@@ -27,6 +27,7 @@ from ..scoring.secscore import grade_of
 from ..storage import ClickHouseStore
 from .attacker import AttackOutcome, Attacker
 from .clients import GatewayChatClient, SandboxChatClient, resolve_agent_client
+from .payload import DEFAULT_VARIABLES
 
 
 @dataclass(slots=True)
@@ -124,6 +125,9 @@ async def execute_campaign(
 
     result = CampaignExecution(campaign_id=str(campaign.id))
     values = list(canary_values or (campaign.constraints or {}).get("canary_values", []) or [])
+    # 用例模板里的 {{question}} / {{order_id}} 等占位符要先填好再下发：
+    # 不然目标收到的是空壳，战役跑得快却没有任何真实观测，全场“未命中”。
+    render_vars = {**DEFAULT_VARIABLES, **dict((campaign.constraints or {}).get("variables", {}) or {})}
 
     # 目标客户端在轮次外解析一次：HTTP/SDK 接入直连端点，不再一律回退离线回放
     agent = await AgentRepository(session, tenant_id).get_optional(campaign.agent_id)
@@ -147,6 +151,7 @@ async def execute_campaign(
                 case_id=case.case_id,
                 category_code=case.category_code,
                 payload=case.payload_template,
+                variables=render_vars,
                 strategy_id=strategy_id,
                 criteria=str(case.success_criteria.get("judge_hint", "")),
                 judge_hint=case.judge_prompt,
