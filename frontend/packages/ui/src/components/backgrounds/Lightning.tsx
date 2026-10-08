@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react';
-import { BackgroundLayer, useVisibility } from './BackgroundLayer';
+import { BackgroundLayer, useVisibility, useWebGLSupport } from './BackgroundLayer';
 import './Lightning.css';
 
 export interface LightningProps {
@@ -34,10 +34,15 @@ export function Lightning({
   const visible = useVisibility();
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
+  /* WebGL 不可用时静默降级：背景是纯装饰，异常绝不能让整页白屏。 */
+  const webglReady = useWebGLSupport();
+  const webglRef = useRef(webglReady);
+  webglRef.current = webglReady;
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !active) return;
+    if (!webglRef.current) return;
 
     const resizeCanvas = () => {
       canvas.width = canvas.clientWidth;

@@ -139,6 +139,9 @@ class SessionMode(StrEnum):
 
 class SessionStatus(StrEnum):
     active = "active"
+    paused = "paused"
+    completed = "completed"
+    aborted = "aborted"
     archived = "archived"
 
 

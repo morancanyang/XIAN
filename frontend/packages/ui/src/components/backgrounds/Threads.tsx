@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Renderer, Program, Mesh, Triangle, Color } from 'ogl';
-import { BackgroundLayer, useTokens, useVisibility } from './BackgroundLayer';
+import { BackgroundLayer, useTokens, useVisibility, useWebGLSupport } from './BackgroundLayer';
 import './Threads.css';
 
 export interface ThreadsProps {
@@ -152,6 +152,10 @@ export function Threads({
   const visible = useVisibility();
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
+  /* WebGL 不可用时静默降级：背景是纯装饰，异常绝不能让整页白屏。 */
+  const webglReady = useWebGLSupport();
+  const webglRef = useRef(webglReady);
+  webglRef.current = webglReady;
   const lineColor = color ?? hexToRgbTriple(tokens.blue);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const animationFrameId = useRef(0);
@@ -164,6 +168,7 @@ export function Threads({
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+    if (!webglRef.current) return;
 
     const renderer = new Renderer({ alpha: true });
     const gl = renderer.gl;

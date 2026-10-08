@@ -1,6 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { Renderer, Program, Mesh, Triangle, Vec2 } from 'ogl';
-import { BackgroundLayer, useVisibility } from './BackgroundLayer';
+import { BackgroundLayer, useVisibility, useWebGLSupport } from './BackgroundLayer';
 import './DarkVeil.css';
 
 export interface DarkVeilProps {
@@ -116,10 +116,15 @@ export function DarkVeil({
   const visible = useVisibility();
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
+  /* WebGL 不可用时静默降级：背景是纯装饰，异常绝不能让整页白屏。 */
+  const webglReady = useWebGLSupport();
+  const webglRef = useRef(webglReady);
+  webglRef.current = webglReady;
   const ref = useRef<HTMLCanvasElement | null>(null);
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
+    if (!webglRef.current) return;
     const parent = canvas.parentElement;
     if (!parent) return;
 

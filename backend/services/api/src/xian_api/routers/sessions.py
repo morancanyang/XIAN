@@ -172,7 +172,7 @@ async def create_card(
 
 @router.get("/{session_id}/cards")
 async def list_cards(session_id: uuid.UUID, session: SessionDep, principal: PrincipalDep) -> list[dict[str, Any]]:
-    rows = await BattleCardRepository(session, principal.tenant_id).for_user(principal.user_id)
+    rows = await BattleCardRepository(session, principal.tenant_id).for_session(session_id)
     return [
         {"id": str(r.id), "category_id": r.category_id, "severity": r.severity,
          "evidence": list(r.evidence), "payload": r.payload}

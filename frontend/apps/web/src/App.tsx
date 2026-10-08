@@ -1,6 +1,12 @@
 import { Suspense, lazy, useEffect } from 'react';
 import { Route, Routes, useLocation } from 'react-router-dom';
-import { TooltipProvider, Threads, GlobalLoading, useReducedMotion } from '@xian/ui';
+import {
+  TooltipProvider,
+  Threads,
+  GlobalLoading,
+  useReducedMotion,
+  ErrorBoundary
+} from '@xian/ui';
 import { useSessionStore } from './store/sessionStore';
 import { AppLayout } from './components/layout/AppLayout';
 import { ToastProvider } from './components/layout/ToastHost';
@@ -42,7 +48,10 @@ export function App() {
       <TooltipProvider delayDuration={200}>
         {/* 全局默认背景：根布局最外层、所有页面之下（技术方案 8.7.1）。
             登录页自带红蓝擂台背景，此处跳过，避免隐藏的 WebGL 循环空跑 GPU。 */}
-        {skipGlobalBackdrop ? null : <Threads />}
+        <ErrorBoundary label="背景加载异常">
+          {skipGlobalBackdrop ? null : <Threads />}
+        </ErrorBoundary>
+        <ErrorBoundary label="页面加载异常">
         <Suspense fallback={<GlobalLoading visible label="页面加载中" />}>
           <Routes>
             <Route element={<AppLayout />}>
@@ -68,6 +77,7 @@ export function App() {
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
+        </ErrorBoundary>
       </TooltipProvider>
       <CommandPalette />
     </ToastProvider>

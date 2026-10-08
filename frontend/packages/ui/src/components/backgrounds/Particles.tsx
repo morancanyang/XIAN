@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Renderer, Camera, Geometry, Program, Mesh } from 'ogl';
-import { BackgroundLayer, useTokens, useVisibility } from './BackgroundLayer';
+import { BackgroundLayer, useTokens, useVisibility, useWebGLSupport } from './BackgroundLayer';
 import './Particles.css';
 
 export interface ParticlesProps {
@@ -125,6 +125,10 @@ export function Particles({
   const visible = useVisibility();
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
+  /* WebGL 不可用时静默降级：背景是纯装饰，异常绝不能让整页白屏。 */
+  const webglReady = useWebGLSupport();
+  const webglRef = useRef(webglReady);
+  webglRef.current = webglReady;
   const resolvedPalette = particleColors ?? [tokens.blue, tokens.red];
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mouseRef = useRef({ x: 0, y: 0 });
@@ -132,6 +136,7 @@ export function Particles({
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+    if (!webglRef.current) return;
 
     const renderer = new Renderer({
       dpr: pixelRatio,

@@ -57,6 +57,41 @@ export function useTokens(): { red: string; blue: string; coach: string; base: s
   }, []);
 }
 
+let webglSupport: boolean | null = null;
+
+/**
+ * 探测 WebGL 可用性并缓存结果。
+ *
+ * 部分内嵌 WebView / 老旧驱动 / 远程桌面环境拿不到 WebGL 上下文，
+ * ogl 的 Renderer 会抛 "unable to create webgl context"。
+ * 背景层属于纯装饰，探测失败时必须静默降级，绝不能把异常抛给 React——
+ * 否则没有错误边界时整棵树会被卸载，用户看到的就是整页白屏。
+ */
+export function isWebGLAvailable(): boolean {
+  if (webglSupport !== null) return webglSupport;
+  if (typeof document === 'undefined') {
+    webglSupport = false;
+    return webglSupport;
+  }
+  try {
+    const canvas = document.createElement('canvas');
+    const gl =
+      canvas.getContext('webgl2') ??
+      canvas.getContext('webgl') ??
+      canvas.getContext('experimental-webgl');
+    webglSupport = Boolean(gl);
+  } catch {
+    webglSupport = false;
+  }
+  return webglSupport;
+}
+
+/** WebGL 能力探测的 React 封装：不可用时组件直接走静态降级分支。 */
+export function useWebGLSupport(): boolean {
+  const supported = isWebGLAvailable();
+  return supported;
+}
+
 /** 页面不可见时暂停 rAF，节省 GPU 与电量（8.7.2 性能预算）。 */
 export function useVisibility(): boolean {
   const [visible, setVisible] = React.useState(() =>

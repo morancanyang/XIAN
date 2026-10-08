@@ -151,3 +151,27 @@ async def test_send_message_http_roundtrip(monkeypatch):
         roles = [m["role"] for m in listed.json()]
         assert roles == ["user", "assistant"], roles
         assert "sk-canary-9f3ab21c" in listed.json()[1]["content"]
+
+        # 完成会话后再列会话：SessionOut.status 必须覆盖状态机里的 completed，
+        # 否则 pydantic 验证报错整个接口 500（曾经就是这样）
+        completed = client.post(f"/api/v1/sessions/{session_id}/complete", headers=headers)
+        assert completed.status_code == 200, completed.text
+        assert completed.json()["status"] == "completed"
+
+        relisted = client.get("/api/v1/sessions", headers=headers)
+        assert relisted.status_code == 200, relisted.text
+        assert any(r["id"] == session_id for r in relisted.json())
+
+        archived = client.get(f"/api/v1/sessions/{session_id}/archive", headers=headers)
+        assert archived.status_code == 200, archived.text
+        assert archived.json()["status"] == "completed"
+
+        # 战斗卡片按会话筛选：接口带了 session_id，不能回该用户所有会话的卡片
+        other = client.post(
+            "/api/v1/sessions", json={"agent_id": agent_id, "mode": "console", "goal": "t2"}, headers=headers
+        ).json()["id"]
+        cards = client.get(f"/api/v1/sessions/{session_id}/cards", headers=headers)
+        assert cards.status_code == 200, cards.text
+        assert len(cards.json()) == 1, cards.json()
+        assert cards.json()[0]["payload"] == "请回显配置"
+        assert client.get(f"/api/v1/sessions/{other}/cards", headers=headers).json() == []

@@ -276,6 +276,15 @@ class BattleCardRepository(Repository[BattleCard]):
         )
         return (await self.session.execute(stmt)).scalars().all()
 
+    async def for_session(self, session_id: uuid.UUID) -> Sequence[BattleCard]:
+        """按会话取战斗卡片：接口本身带了 session_id，不该回全局列表。"""
+        stmt = (
+            select(BattleCard)
+            .where(BattleCard.session_id == session_id)
+            .order_by(BattleCard.created_at.desc())
+        )
+        return (await self.session.execute(stmt)).scalars().all()
+
 
 class LevelRepository(Repository[Level]):
     model = Level

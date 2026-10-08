@@ -1,6 +1,6 @@
 import { Renderer, Program, Mesh, Triangle } from 'ogl';
 import { useEffect, useRef } from 'react';
-import { BackgroundLayer, useTokens, useVisibility } from './BackgroundLayer';
+import { BackgroundLayer, useTokens, useVisibility, useWebGLSupport } from './BackgroundLayer';
 import './Radar.css';
 
 export interface RadarProps {
@@ -148,12 +148,17 @@ export function Radar({
   const visible = useVisibility();
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
+  /* WebGL 不可用时静默降级：背景是纯装饰，异常绝不能让整页白屏。 */
+  const webglReady = useWebGLSupport();
+  const webglRef = useRef(webglReady);
+  webglRef.current = webglReady;
   const scanColor = color ?? tokens.blue;
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
     const container = containerRef.current;
+    if (!webglRef.current) return;
     const renderer = new Renderer({ alpha: true, premultipliedAlpha: false });
     const gl = renderer.gl;
     gl.clearColor(0, 0, 0, 0);

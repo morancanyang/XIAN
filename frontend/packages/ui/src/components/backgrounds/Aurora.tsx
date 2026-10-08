@@ -1,6 +1,6 @@
 import { Renderer, Program, Mesh, Color, Triangle } from 'ogl';
 import { useEffect, useRef } from 'react';
-import { BackgroundLayer, useTokens, useVisibility } from './BackgroundLayer';
+import { BackgroundLayer, useTokens, useVisibility, useWebGLSupport } from './BackgroundLayer';
 import './Aurora.css';
 
 export interface AuroraProps {
@@ -139,6 +139,10 @@ export function Aurora(props: AuroraProps) {
   const visible = useVisibility();
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
+  /* WebGL 不可用时静默降级：背景是纯装饰，异常绝不能让整页白屏。 */
+  const webglReady = useWebGLSupport();
+  const webglRef = useRef(webglReady);
+  webglRef.current = webglReady;
   const {
     colorStops = [tokens.blue, tokens.red, tokens.base],
     amplitude = 1.0,
@@ -155,6 +159,7 @@ export function Aurora(props: AuroraProps) {
   useEffect(() => {
     const ctn = ctnDom.current;
     if (!ctn) return;
+    if (!webglRef.current) return;
 
     const renderer = new Renderer({
       alpha: true,

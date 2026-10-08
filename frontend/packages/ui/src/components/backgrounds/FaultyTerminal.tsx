@@ -1,6 +1,6 @@
 import { Renderer, Program, Mesh, Color, Triangle } from 'ogl';
 import { useEffect, useRef, useMemo, useCallback } from 'react';
-import { BackgroundLayer, useTokens, useVisibility } from './BackgroundLayer';
+import { BackgroundLayer, useTokens, useVisibility, useWebGLSupport } from './BackgroundLayer';
 import './FaultyTerminal.css';
 
 export interface FaultyTerminalProps {
@@ -285,6 +285,10 @@ export function FaultyTerminal({
   const visible = useVisibility();
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
+  /* WebGL 不可用时静默降级：背景是纯装饰，异常绝不能让整页白屏。 */
+  const webglReady = useWebGLSupport();
+  const webglRef = useRef(webglReady);
+  webglRef.current = webglReady;
   const tintColor = tint ?? tokens.blue;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const programRef = useRef<Program | null>(null);
@@ -312,6 +316,7 @@ export function FaultyTerminal({
   useEffect(() => {
     const ctn = containerRef.current;
     if (!ctn) return;
+    if (!webglRef.current) return;
 
     const renderer = new Renderer({ dpr });
     rendererRef.current = renderer;
