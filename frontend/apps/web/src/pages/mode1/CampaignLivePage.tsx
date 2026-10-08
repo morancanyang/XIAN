@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   Badge,
@@ -52,16 +51,14 @@ export default function CampaignLivePage() {
   const attacking = c.status === 'attacking' || c.status === 'preparing';
 
   const totalTokens = records.data?.items.reduce((sum, r) => sum + r.tokens, 0) ?? 0;
-  /* DAG 节点判定：同一类别取最重结论（命中 > 部分 > 未命中 > 不可用） */
-  const verdictByNode = useMemo(() => {
-    const rank: Record<string, number> = { success: 3, partial: 2, fail: 1, unavailable: 0 };
-    const out: Record<string, Verdict> = {};
-    for (const r of records.data?.items ?? []) {
-      const prev = out[r.category_code];
-      if (!prev || (rank[r.verdict] ?? 0) > (rank[prev] ?? 0)) out[r.category_code] = r.verdict;
-    }
-    return out;
-  }, [records.data]);
+  /* DAG 节点判定：同一类别取最重结论（命中 > 部分 > 未命中 > 不可用）。
+     注意：这里不能使用 hook——组件上方有提前 return，钩子数量会随状态变化而崩白屏。 */
+  const verdictByNode: Record<string, Verdict> = {};
+  const rank: Record<string, number> = { success: 3, partial: 2, fail: 1, unavailable: 0 };
+  for (const r of records.data?.items ?? []) {
+    const prev = verdictByNode[r.category_code];
+    if (!prev || (rank[r.verdict] ?? 0) > (rank[prev] ?? 0)) verdictByNode[r.category_code] = r.verdict;
+  }
 
   const scoredSamples = records.data?.items.filter((r) => r.verdict !== 'unavailable').length ?? 0;
 
