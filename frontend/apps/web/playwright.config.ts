@@ -2,6 +2,8 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/e2e',
+  /* manual/ 下是人工核对用的截图与探针脚本，不进常规 e2e 跑测 */
+  testIgnore: '**/manual/**',
   timeout: 60_000,
   fullyParallel: false,
   workers: 1,
