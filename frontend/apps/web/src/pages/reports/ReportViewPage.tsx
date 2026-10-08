@@ -200,7 +200,9 @@ export default function ReportViewPage() {
                       {topRisks.length === 0 ? <li className="text-xs text-content-faint">无高危项</li> : null}
                     </ul>
                   </div>
-                  {Object.keys(radar).length >= 3 ? <RadarScore data={radar} size={220} /> : null}
+                  {/* 维度不足 3 项时 RadarScore 自己会渲染「数据不足」提示，
+                      这里不再前置拦截，避免用户以为组件丢了 */}
+                  <RadarScore data={radar} size={220} />
                 </div>
 
                 <div className="mt-3 grid grid-cols-3 gap-3 text-xs">
