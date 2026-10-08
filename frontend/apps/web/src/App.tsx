@@ -13,6 +13,7 @@ const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
 const AgentsPage = lazy(() => import('./pages/agents/AgentsPage'));
 const AgentDetailPage = lazy(() => import('./pages/agents/AgentDetailPage'));
 const ScenarioMarketPage = lazy(() => import('./pages/scenarios/ScenarioMarketPage'));
+const ScenarioDetailPage = lazy(() => import('./pages/scenarios/ScenarioDetailPage'));
 const CampaignsPage = lazy(() => import('./pages/mode1/CampaignsPage'));
 const CampaignCreatePage = lazy(() => import('./pages/mode1/CampaignCreatePage'));
 const CampaignLivePage = lazy(() => import('./pages/mode1/CampaignLivePage'));
@@ -49,6 +50,7 @@ export function App() {
               <Route path="/agents" element={<AgentsPage />} />
               <Route path="/agents/:agentId" element={<AgentDetailPage />} />
               <Route path="/scenarios" element={<ScenarioMarketPage />} />
+              <Route path="/scenarios/:code" element={<ScenarioDetailPage />} />
               <Route path="/campaigns" element={<CampaignsPage />} />
               <Route path="/campaigns/new" element={<CampaignCreatePage />} />
               <Route path="/campaigns/:campaignId" element={<CampaignLivePage />} />

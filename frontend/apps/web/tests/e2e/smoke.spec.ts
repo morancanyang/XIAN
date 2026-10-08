@@ -17,6 +17,14 @@ const PAGES = [
   { path: '/profile', marker: '个人中心' }
 ];
 
+/** 详情页路由：ID 从后端实时取，库里没有对应数据时自动跳过。 */
+const DETAILS: { path: (id: string) => string; marker: string; list: string }[] = [
+  { path: (id) => `/agents/${id}`, marker: 'Agent', list: '/api/v1/agents' },
+  { path: (id) => `/campaigns/${id}`, marker: '战役进度', list: '/api/v1/campaigns' },
+  { path: (id) => `/reports/${id}`, marker: '报告', list: '/api/v1/reports' },
+  { path: (id) => `/scenarios/${id}`, marker: '场景', list: '/api/v1/scenarios' }
+];
+
 test.describe('XIAN Web 冒烟', () => {
   for (const p of PAGES) {
     test(`页面 ${p.path} 可渲染`, async ({ page }) => {
@@ -40,6 +48,33 @@ test.describe('XIAN Web 冒烟', () => {
     await page.keyboard.press('Control+k');
     await expect(page.getByText('命令面板').first()).toBeVisible();
     await page.keyboard.press('Escape');
+  });
+
+  test('详情页不白屏：Agent / 战役 / 报告 / 场景', async ({ page, request }) => {
+    test.setTimeout(180_000);
+    const headers = {
+      'X-Tenant-Id': '00000000-0000-0000-0000-000000000001',
+      'X-User-Id': '11111111-1111-1111-1111-111111111111',
+      'X-Role': 'admin'
+    };
+    for (const d of DETAILS) {
+      const res = await request.get(`http://127.0.0.1:8000${d.list}`, { headers });
+      // 接口返回两种形状：直接数组，或 { items: [] } 分页封装
+      const body = (await res.json()) as { items?: { id?: string; code?: string }[] } | { id?: string; code?: string }[];
+      const rows: { id?: string; code?: string }[] = Array.isArray(body) ? body : (body.items ?? []);
+      const first = rows[rows.length - 1];
+      const id = first?.id ?? first?.code;
+      test.skip(!id, `${d.list} 无数据，跳过`);
+
+      const errors: string[] = [];
+      page.on('pageerror', (err) => errors.push(err.message));
+      await page.goto(d.path(id!));
+      // 白屏的直接信号：整页没有任何可见文本
+      await expect(page.locator('body')).not.toBeEmpty();
+      await expect(page.locator('body')).toContainText(d.marker);
+      expect(errors, `详情页 ${d.path(id!)} 出现未捕获异常：${errors.join(' | ')}`).toHaveLength(0);
+      page.removeAllListeners('pageerror');
+    }
   });
 
   test('登录页可切换角色并进入驾驶舱', async ({ page }) => {

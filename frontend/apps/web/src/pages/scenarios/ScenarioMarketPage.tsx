@@ -103,6 +103,9 @@ export default function ScenarioMarketPage() {
                       实例化
                     </Button>
                     <Button size="sm" variant="outline" asChild>
+                      <Link to={`/scenarios/${s.code}`}>详情</Link>
+                    </Button>
+                    <Button size="sm" variant="outline" asChild>
                       <Link to={`/campaigns/new?scenario=${s.id}`}>发起战役</Link>
                     </Button>
                   </div>

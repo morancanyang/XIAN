@@ -276,12 +276,17 @@ export interface Scenario {
   name: string;
   category: string;
   difficulty: Difficulty;
-  env_template: Record<string, unknown>;
+  description: string;
+  agent_form: string;
+  baseline_tasks: number;
   script: string[];
   default_difficulty: string;
   tools: ScenarioTool[];
   canary_types: string[];
   monitors: string[];
+  exam_tags: string[];
+  typical_attack_chain: string[];
+  env_template: Record<string, unknown>;
   status: string;
 }
 
