@@ -33,7 +33,7 @@ export default function LevelMapPage() {
   const markCompleted = useLevelStore((s) => s.markCompleted);
   const energy = useConsoleStore((s) => s.energy);
   const setEnergy = useConsoleStore((s) => s.setEnergy);
-  const useHintStore = useConsoleStore((s) => s.useHint);
+  const markHintUsed = useConsoleStore((s) => s.useHint);
   const toast = useToast();
 
   const [agentOutput, setAgentOutput] = useState('');
@@ -196,7 +196,7 @@ export default function LevelMapPage() {
                             try {
                               const res = await hint.mutateAsync({ code: selected, hint_level: h });
                               setEnergy(res.energy_left);
-                              useHintStore(h);
+                              markHintUsed(h);
                               toast.info(`已使用 ${h}`, res.content.slice(0, 60));
                             } catch (e) {
                               toast.error('提示不可用', errorMessage(e));
