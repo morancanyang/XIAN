@@ -134,9 +134,13 @@ def select_cases(
     difficulty: str | None = None,
     limit: int = 20,
 ) -> list[AttackCaseAsset]:
-    """按类别 / 场景 / 严重度 / 难度筛选，供指挥官方生成战役计划。"""
+    """按类别 / 场景 / 严重度 / 难度筛选，供指挥官方生成战役计划。
+
+    limit 是总预算，按类别轮询均衡分配：每个入选类别先各取一条，再取第二条，直到预算用完。
+    之前按种子文件顺序线性截断，排在前面的类别会把预算吃光，靠后的类别一条都拿不到，
+    能力雷达上对应的维度会直接消失。"""
     cats = set(categories) if categories else None
-    out: list[AttackCaseAsset] = []
+    grouped: dict[str, list[AttackCaseAsset]] = {}
     for case in load_seed_cases():
         if case.status != "published":
             continue
@@ -148,9 +152,19 @@ def select_cases(
             continue
         if difficulty and case.difficulty != difficulty:
             continue
-        out.append(case)
-        if len(out) >= limit:
-            break
+        grouped.setdefault(case.category_code, []).append(case)
+
+    out: list[AttackCaseAsset] = []
+    queues = [list(items) for items in grouped.values()]
+    while queues and len(out) < limit:
+        pending: list[list[AttackCaseAsset]] = []
+        for queue in queues:
+            out.append(queue.pop(0))
+            if queue:
+                pending.append(queue)
+            if len(out) >= limit:
+                break
+        queues = pending
     return out
 
 

@@ -75,3 +75,24 @@ def test_strategy_templates_have_default_values_too() -> None:
         if gaps:
             missing[strategy.id] = gaps
     assert not missing, f"策略缺默认值：{missing}"
+
+
+def test_select_cases_spreads_budget_across_categories() -> None:
+    """limit 是总预算，必须按类别轮询均衡分配。
+
+    之前按种子文件顺序线性截断，排在前面的类别会把预算吃光，
+    靠后的类别一条用例都拿不到，能力雷达上对应的维度直接消失。
+    """
+    from collections import Counter
+
+    from xian_core.cases import select_cases
+
+    for limit in (14, 20, 40, 60):
+        picked = select_cases(limit=limit)
+        assert len(picked) == min(limit, len(all_cases()))
+        counter = Counter(case.category_code for case in picked)
+        assert set(counter) == set(CATEGORY_CODES), (
+            f"limit={limit} 时这些类别没有用例：{set(CATEGORY_CODES) - set(counter)}"
+        )
+        counts = sorted(counter.values())
+        assert counts[-1] - counts[0] <= 1, f"limit={limit} 分配不均：{counts}"
