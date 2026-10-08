@@ -67,7 +67,7 @@ class DagNode(StrictModel):
     id: str
     category_code: str
     stage: str
-    case_ids: list[UUID] = Field(default_factory=list)
+    case_ids: list[str] = Field(default_factory=list)
     budget_split: dict[str, int] = Field(default_factory=dict)
     depends_on: list[str] = Field(default_factory=list)
     weight: float = 1.0

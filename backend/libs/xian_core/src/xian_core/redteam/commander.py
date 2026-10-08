@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from ..cases import cases_by_category
 from ..matrix import load_categories
 from ..schemas.campaign import Budget, DagNode
 from ..schemas.common import Intensity
@@ -108,20 +109,20 @@ def build_plan(
     nodes: list[DagNode] = []
     edges: list[list[str]] = []
     for cat in categories:
-        stage = _stage_of(cat.stage)
-        node_id = f"{cat.code}"
         nodes.append(
             DagNode(
-                id=node_id,
+                id=cat.code,
                 category_code=cat.code,
-                stage=stage,
+                stage=_stage_of(cat.stage),
                 case_ids=[],
                 budget_split={},
-                depends_on=_depends_on(stage, cat.code, [n.id for n in nodes]),
                 weight=_weight(cat.code, surface, history),
             )
         )
+    # 依赖必须在全部节点入列后统一计算：边只跟"阶段/类别"有关，
+    # 不该被权重排序偶然决定（否则同一份 scope 换个顺序就画出不同的 DAG）。
     for node in nodes:
+        node.depends_on = _depends_on(node.stage, node.category_code, [n.id for n in nodes if n.id != node.id])
         for dep in node.depends_on:
             edges.append([dep, node.id])
 
@@ -134,6 +135,8 @@ def build_plan(
             "cases": max(1, int(budget.cases * share)),
             "max_turns": profile["max_turns"],
         }
+        # 节点上带出该类别实际会跑的用例：DAG 不只是几张卡片，而是可核对的执行清单
+        node.case_ids = [c.case_id for c in cases_by_category(node.category_code)][: node.budget_split["cases"]]
     return {
         "dag_nodes": [n.model_dump(mode="json") for n in nodes],
         "edges": edges,

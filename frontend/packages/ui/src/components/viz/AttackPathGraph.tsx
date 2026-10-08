@@ -18,10 +18,11 @@ export interface AttackPathNodeData extends Record<string, unknown> {
   label: string;
   category: string;
   verdict?: 'success' | 'partial' | 'fail' | 'unavailable';
+  meta?: string;
 }
 
 export interface AttackPathGraphProps {
-  nodes: { id: string; label: string; category: string; verdict?: AttackPathNodeData['verdict'] }[];
+  nodes: { id: string; label: string; category: string; verdict?: AttackPathNodeData['verdict']; meta?: string }[];
   edges: { source: string; target: string }[];
   className?: string;
   height?: number;
@@ -30,6 +31,7 @@ export interface AttackPathGraphProps {
 }
 
 const NODE_WIDTH = 190;
+const NODE_HEIGHT = 84;
 const COLUMN_GAP = 56;
 const ROW_GAP = 18;
 
@@ -39,7 +41,7 @@ export function AttackPathGraph({ nodes, edges, className, height = 320, stages 
     if (!stages || stages.length === 0) {
       return nodes.map((n, i) => ({
         id: n.id,
-        position: { x: (i % 4) * 200, y: Math.floor(i / 4) * 120 }
+        position: { x: (i % 4) * (NODE_WIDTH + 10), y: Math.floor(i / 4) * (NODE_HEIGHT + ROW_GAP) }
       }));
     }
     // 按阶段分列：同一阶段纵向堆叠，列间距固定，读起来就是一条从左到右的攻击链
@@ -50,7 +52,7 @@ export function AttackPathGraph({ nodes, edges, className, height = 320, stages 
       counters.set(n.category, row + 1);
       return {
         id: n.id,
-        position: { x: column * (NODE_WIDTH + COLUMN_GAP), y: row * (NODE_WIDTH + ROW_GAP) }
+        position: { x: column * (NODE_WIDTH + COLUMN_GAP), y: row * (NODE_HEIGHT + ROW_GAP) }
       };
     });
   }, [nodes, stages]);
@@ -60,7 +62,7 @@ export function AttackPathGraph({ nodes, edges, className, height = 320, stages 
       nodes.map((n, i) => ({
         id: n.id,
         position: layout[i]?.position ?? { x: 0, y: 0 },
-        data: { label: n.label, category: n.category, verdict: n.verdict },
+        data: { label: n.label, category: n.category, verdict: n.verdict, meta: n.meta },
         sourcePosition: Position.Right,
         targetPosition: Position.Left
       })),
@@ -92,7 +94,9 @@ export function AttackPathGraph({ nodes, edges, className, height = 320, stages 
             {data.verdict === 'success' ? <Badge tone="danger">命中</Badge> : null}
             {data.verdict === 'partial' ? <Badge tone="warning">部分</Badge> : null}
             {data.verdict === 'fail' ? <Badge tone="neutral">未命中</Badge> : null}
+            {data.verdict === 'unavailable' ? <Badge tone="neutral">不可用</Badge> : null}
           </div>
+          {data.meta ? <p className="mt-1 truncate font-mono text-[10px] text-content-faint">{data.meta}</p> : null}
         </div>
       )
     }),

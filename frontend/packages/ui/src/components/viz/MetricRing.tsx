@@ -22,7 +22,7 @@ export function MetricRing({
   className
 }: MetricRingProps) {
   const reduced = useReducedMotion();
-  const animated = useCountUp(reduced ? value : 0, 600);
+  const animated = useCountUp(value, 600);
   const shown = reduced ? value : animated;
   const ratio = Math.min(1, Math.max(0, shown / max));
 

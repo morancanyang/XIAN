@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   Badge,
@@ -27,7 +28,7 @@ import { useCampaignStream } from '../../lib/ws/useCampaignStream';
 import { useToast } from '../../components/layout/ToastHost';
 import { errorMessage } from '../../lib/api/errors';
 import { fmtDateTime } from '../../lib/utils/format';
-import type { CampaignPlan } from '@xian/types';
+import type { CampaignPlan, Verdict } from '@xian/types';
 
 /** 模式一 CampaignLive（技术方案 8.4）：顶部进度/预算 + 角色活动流 + 攻击记录。 */
 export default function CampaignLivePage() {
@@ -51,6 +52,18 @@ export default function CampaignLivePage() {
   const attacking = c.status === 'attacking' || c.status === 'preparing';
 
   const totalTokens = records.data?.items.reduce((sum, r) => sum + r.tokens, 0) ?? 0;
+  /* DAG 节点判定：同一类别取最重结论（命中 > 部分 > 未命中 > 不可用） */
+  const verdictByNode = useMemo(() => {
+    const rank: Record<string, number> = { success: 3, partial: 2, fail: 1, unavailable: 0 };
+    const out: Record<string, Verdict> = {};
+    for (const r of records.data?.items ?? []) {
+      const prev = out[r.category_code];
+      if (!prev || (rank[r.verdict] ?? 0) > (rank[prev] ?? 0)) out[r.category_code] = r.verdict;
+    }
+    return out;
+  }, [records.data]);
+
+  const scoredSamples = records.data?.items.filter((r) => r.verdict !== 'unavailable').length ?? 0;
 
   return (
     <div className="relative">
@@ -117,8 +130,20 @@ export default function CampaignLivePage() {
                 </p>
               </div>
               {c.sec_score !== null ? (
-                <MetricRing value={c.sec_score} label={`SecScore ${c.grade ?? ''}`} tone={c.sec_score >= 80 ? 'success' : c.sec_score >= 60 ? 'coach' : 'red'} />
-              ) : null}
+                <MetricRing
+                  value={c.sec_score}
+                  label={`SecScore ${c.grade ?? ''}`}
+                  tone={c.sec_score >= 80 ? 'success' : c.sec_score >= 60 ? 'coach' : 'red'}
+                />
+              ) : (
+                <div className="w-[120px] text-center">
+                  <p className="font-mono text-lg font-semibold text-content-faint">—</p>
+                  <p className="text-[10px] text-content-faint">SecScore 未评分</p>
+                  <p className="mt-1 text-[10px] text-content-faint">
+                    {scoredSamples === 0 ? '本场无可判定样本' : '执行完成后自动评分'}
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
           <Card>
@@ -143,7 +168,7 @@ export default function CampaignLivePage() {
               <Badge tone={plan?.dag_nodes?.length ? 'blue' : 'neutral'}>{plan?.dag_nodes?.length ?? 0} 节点</Badge>
             </CardHeader>
             <CardContent>
-              <PlanPreview plan={plan} />
+              <PlanPreview plan={plan} verdicts={verdictByNode} />
               {plan?.dag_nodes?.length ? null : (
                 <Button
                   variant="outline"

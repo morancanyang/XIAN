@@ -159,9 +159,11 @@ export interface Budget {
 
 export interface DagNode {
   id: string;
-  title: string;
-  category: string;
-  cases: string[];
+  /** 攻击类别编码 XM-xx，与矩阵类别表的 code 对应 */
+  category_code: string;
+  /** kill chain 阶段：recon / initial_exec / payload_delivery / privilege_escalation / exfiltration / impact */
+  stage: string;
+  case_ids: string[];
   budget_split: Record<string, number>;
   depends_on: string[];
   weight: number;
