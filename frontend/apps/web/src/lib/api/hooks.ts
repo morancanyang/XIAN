@@ -346,6 +346,19 @@ export function useMatrixFrameworks() {
   return useQuery({ queryKey: ['matrix-frameworks'], queryFn: () => api.get<Record<string, unknown>[]>(ROUTES.matrixFrameworks) });
 }
 
+/** 用例评审流水线（PRD 3.5.5.8.1）：submitted → auto_test → review → published。
+ *  注意：后端只按「当前状态 + 是否通过」推算下一状态，不落库，
+ *  所以推进结果只在本页会话内有效，UI 上需如实标注。 */
+export function useReviewCase() {
+  return useMutation({
+    mutationFn: (vars: { caseId: string; status: string; passed: boolean }) =>
+      api.post<{ case_id: string; status: string }>(ROUTES.matrixCaseReview(vars.caseId), {
+        status: vars.status,
+        passed: vars.passed
+      })
+  });
+}
+
 /* ---------- 关卡 ---------- */
 
 export function useLevels() {

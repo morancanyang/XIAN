@@ -62,6 +62,7 @@ export const ROUTES = {
   matrixStrategies: '/api/v1/matrix/strategies',
   matrixStrategiesRender: '/api/v1/matrix/strategies/render',
   matrixCaseExport: (id: string) => `/api/v1/matrix/cases/${id}/export`,
+  matrixCaseReview: (id: string) => `/api/v1/matrix/cases/${id}/review`,
 
   levels: '/api/v1/levels',
   levelProgress: '/api/v1/levels/progress',

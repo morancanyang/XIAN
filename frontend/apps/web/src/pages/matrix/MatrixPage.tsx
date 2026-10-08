@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   Badge,
+  Button,
   Card,
   CardContent,
   CardHeader,
@@ -20,7 +21,14 @@ import { GridScanBackdrop } from '../../features/matrix/components/GridScanBackd
 import { HeatGrid } from '@xian/ui';
 import { TableSkeleton } from '../../components/ui/Loading';
 import { ErrorState } from '@xian/ui';
-import { useMatrixCategories, useMatrixCases, useMatrixCoverage, useMatrixFrameworks } from '../../lib/api/hooks';
+import {
+  useMatrixCategories,
+  useMatrixCases,
+  useMatrixCoverage,
+  useMatrixFrameworks,
+  useReviewCase
+} from '../../lib/api/hooks';
+import { useToast } from '../../components/layout/ToastHost';
 import { errorHint, errorMessage } from '../../lib/api/errors';
 import { DIFFICULTY_LABEL, SEVERITY_LABEL } from '@xian/types';
 import { DataTable, type Column } from '@xian/ui';
@@ -28,13 +36,96 @@ import type { AttackCase } from '@xian/types';
 
 const STAGES = ['侦察', '注入', '越权', '外带', '持久化', '横向移动'];
 
+/** 贡献者评审流水线（PRD 3.5.5.8.1），与后端 PIPELINE_STEPS 对齐。 */
+const PIPELINE_STEPS = ['submitted', 'auto_test', 'review', 'published'] as const;
+const PIPELINE_LABELS: Record<string, string> = {
+  submitted: '已提交',
+  auto_test: '自动测试',
+  review: '双人评审',
+  published: '已上线',
+  rejected: '已驳回'
+};
+
 /** 攻击矩阵（技术方案 8.4）：类别 × 阶段热力网格 + 用例详情抽屉。 */
+/**
+ * 用例评审流水线（PRD 3.5.5.8.1）。
+ *
+ * 库内用例默认均为已上线，此时只读展示；非终态用例才给出
+ * 「通过并推进 / 驳回」操作。后端按「当前状态 + 是否通过」推算下一状态、不落库，
+ * 所以推进结果只在当前会话内有效，面板上已如实说明。
+ */
+function CaseReviewPanel({
+  caseItem,
+  status,
+  onStatus
+}: {
+  caseItem: AttackCase;
+  status: string;
+  onStatus: (next: string) => void;
+}) {
+  const review = useReviewCase();
+  const toast = useToast();
+  const terminal = status === 'published' || status === 'rejected';
+  const idx = PIPELINE_STEPS.indexOf(status as (typeof PIPELINE_STEPS)[number]);
+
+  const advance = async (passed: boolean) => {
+    try {
+      const res = await review.mutateAsync({ caseId: caseItem.id, status, passed });
+      onStatus(res.status);
+      if (passed) {
+        toast.success('评审通过', `已推进到「${PIPELINE_LABELS[res.status] ?? res.status}」`);
+      } else {
+        toast.info('已驳回', '该用例本次会话内不再可推进');
+      }
+    } catch (e) {
+      toast.error(passed ? '推进失败' : '驳回失败', errorMessage(e));
+    }
+  };
+
+  return (
+    <div className="rounded-control border border-border bg-elevated p-3">
+      <p className="mb-2 text-xs font-semibold text-content-muted">评审流水线</p>
+      <div className="flex flex-wrap items-center gap-1">
+        {PIPELINE_STEPS.map((step, i) => (
+          <Badge key={step} tone={step === status ? 'blue' : idx >= 0 && i < idx ? 'success' : 'neutral'}>
+            {PIPELINE_LABELS[step]}
+          </Badge>
+        ))}
+        {status === 'rejected' ? <Badge tone="danger">已驳回</Badge> : null}
+      </div>
+
+      {terminal ? (
+        <p className="mt-3 text-[11px] leading-relaxed text-content-faint">
+          {status === 'published'
+            ? '该用例已上线，无需继续评审。'
+            : '该用例已被驳回，不再推进。'}
+        </p>
+      ) : (
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button size="sm" loading={review.isPending} onClick={() => advance(true)}>
+            通过并推进
+          </Button>
+          <Button size="sm" variant="outline" loading={review.isPending} onClick={() => advance(false)}>
+            驳回
+          </Button>
+        </div>
+      )}
+
+      <p className="mt-2 text-[11px] leading-relaxed text-content-faint">
+        流水线状态仅在当前会话内生效：刷新后恢复为库内存储的初始值。
+      </p>
+    </div>
+  );
+}
+
 export default function MatrixPage() {
   const categories = useMatrixCategories();
   const cases = useMatrixCases();
   const coverage = useMatrixCoverage();
   const frameworks = useMatrixFrameworks();
   const [openCase, setOpenCase] = useState<AttackCase | null>(null);
+  /* 评审流水线的会话内推进结果（后端不落库，刷新后失效） */
+  const [reviewed, setReviewed] = useState<Record<string, string>>({});
 
   const cells = useMemo(() => {
     const out: { x: string; y: string; value: number; hint: string }[] = [];
@@ -183,6 +274,12 @@ export default function MatrixPage() {
             <div className="space-y-3">
               <CodeBlock>{openCase.payload_template}</CodeBlock>
               <p className="text-[11px] text-content-faint">贡献者：{openCase.contributor} · v{openCase.version}</p>
+
+              <CaseReviewPanel
+                caseItem={openCase}
+                status={reviewed[openCase.id] ?? openCase.status}
+                onStatus={(next) => setReviewed((prev) => ({ ...prev, [openCase.id]: next }))}
+              />
             </div>
           ) : null}
         </DialogContent>
