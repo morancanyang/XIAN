@@ -377,6 +377,8 @@ export interface LevelProgress {
   energy_left: number;
   dimension_coverage: Record<string, number>;
   badge: string | null;
+  attempt_passed?: boolean;
+  attempt_reason?: string;
 }
 
 export interface HintResult {

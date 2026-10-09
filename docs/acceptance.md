@@ -51,6 +51,13 @@
   等于白给；现在未使用只显示占位，用过后才展示完整内容，按钮转「已用」并禁用。
   useHint 成功后失效 level-progress 查询（与 useStartLevel/useSubmitLevel 一致），
   能量徽标随关卡切换到当前关卡的 energy_left，扣费即时可见。
+- 关卡提交回传本次判定而非历史状态：submit_attempt 原先只返回持久化的
+  row.status / row.score，已通关关卡的状态永远是 passed，于是往「Agent 最终输出」
+  里随手打四个字再点「提交并判定」也会弹「通关成功 · 100 分」。现在
+  LevelProgressOut 增加 attempt_passed / attempt_reason 两个字段回传 verdict，
+  前端据此三分支提示：本次通过才标通关、历史已过但本次未过提示「该关已通关」
+  并给出历史最好成绩、否则按 attempt_reason 说明缺哪个条件。
+  新增回归用例 test_resubmitting_passed_level_reports_attempt_verdict。
 ## 验证入口汇总
 
 ```bash
@@ -64,7 +71,7 @@ python -m pytest examples/demo-agent -q         # AC-02
 | 指标 | 目标 | 实测 |
 | --- | --- | --- |
 | 端到端冒烟耗时 | ≤ 30 min | 27 s |
-| 后端单测 | 全绿 | 237 passed |
+| 后端单测 | 全绿 | 238 passed |
 | 示例 Agent 自检 | 全绿 | 15 passed |
 | 前端单测 | 全绿 | 33 passed |
 | API 路由数 | PRD 模块全覆盖 | 69 路由 / 26 router |

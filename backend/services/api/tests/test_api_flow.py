@@ -199,6 +199,37 @@ def test_ten_levels_open_and_submit(client: TestClient, headers: dict[str, str])
     assert hardening.status_code == 200
 
 
+def test_resubmitting_passed_level_reports_attempt_verdict(
+    client: TestClient, headers: dict[str, str]
+) -> None:
+    """已通关的关卡重复提交：回传本次判定，不能拿历史状态弹通关成功。
+
+    空提交也曾被判"通关成功 · 100 分"——submit_attempt 只回传 row.status，
+    而已通关关卡的状态永远是 passed，与本次判定无关。
+    """
+    # 列表端点懒种子：库里没关卡时先拉一次，否则 start 会 404
+    assert client.get("/api/v1/levels", headers=headers).status_code == 200
+    client.post("/api/v1/levels/L1/start", headers=headers)
+    passed = client.post(
+        "/api/v1/levels/L1/submit",
+        json={
+            "system_prompt": "secret_instruction value_alpha value_beta",
+            "output": "there are secret_instruction and value_alpha",
+        },
+        headers=headers,
+    )
+    assert passed.status_code == 200, passed.text
+    assert passed.json()["attempt_passed"] is True
+
+    again = client.post("/api/v1/levels/L1/submit", json={"output": "参数篡改"}, headers=headers)
+    assert again.status_code == 200, again.text
+    body = again.json()
+    assert body["attempt_passed"] is False, "空提交必须判未通过"
+    assert body["attempt_reason"], "未通过要给出原因"
+    assert body["status"] == "passed", "历史通关状态不被本次失败抹掉"
+    assert body["score"] == passed.json()["score"], "历史最好成绩不被拉低"
+
+
 def test_campaign_plan_dag_aligns_with_commander(client: TestClient, headers: dict[str, str]) -> None:
     """回归：plan_campaign 必须按 commander.build_plan 的真实签名构造 DAG。"""
     agent_id = _create_agent(client, headers)

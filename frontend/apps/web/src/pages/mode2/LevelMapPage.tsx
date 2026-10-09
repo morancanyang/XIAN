@@ -162,11 +162,15 @@ export default function LevelMapPage() {
                             time_used: 0,
                             technique: selectedLevel.techniques[0]
                           });
-                          if (res.status === 'passed') {
+                          if (res.attempt_passed) {
                             markCompleted(res.level_id, res.score);
                             toast.success('通关成功', `${selectedLevel.name} · ${res.score} 分`);
+                          } else if (res.status === 'passed') {
+                            // 已通关的关卡重复提交：status 还是 passed，但本次判定没过，
+                            // 不能拿历史状态再弹一次通关成功。
+                            toast.info('该关已通关', `本次未满足通过条件，历史最好成绩 ${res.score} 分`);
                           } else {
-                            toast.error('未通关', '请检查是否满足该关的通过条件');
+                            toast.error('未通关', res.attempt_reason || '请检查是否满足该关的通过条件');
                           }
                           progress.refetch();
                         } catch (e) {

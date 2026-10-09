@@ -33,6 +33,10 @@ class LevelProgressOut(StrictModel):
     energy_left: int
     dimension_coverage: dict[str, float]
     badge: str | None = None
+    # 本次提交的判定。已通关的关卡重复提交时 status 仍是 passed，少了这两个字段，
+    # 前端只能拿历史状态弹"通关成功"——空提交也能刷分。
+    attempt_passed: bool = False
+    attempt_reason: str = ""
 
 
 class HintUseIn(StrictModel):

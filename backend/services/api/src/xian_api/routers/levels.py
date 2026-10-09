@@ -159,7 +159,12 @@ async def submit_attempt(code: str, body: dict, session: SessionDep, principal: 
         row.completed_at = __import__("datetime").datetime.now(__import__("datetime").UTC)
     await session.commit()
     await session.refresh(row)
-    return LevelProgressOut.model_validate(row)
+    out = LevelProgressOut.model_validate(row)
+    # 回传本次判定：已通关的关卡重复提交时 row.status 一直是 passed，
+    # 只回传历史状态会让空提交也弹"通关成功"。
+    out.attempt_passed = verdict.passed
+    out.attempt_reason = verdict.reason
+    return out
 
 
 @router.get("/{code}/hardening")
