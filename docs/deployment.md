@@ -183,6 +183,80 @@ alembic -c migrations/alembic.ini upgrade head
   白名单外一律拒绝；命中蜜标域名时直接记录 `canary_hit`。
 - 演示结束后实例与数据按 `xian_core.sandbox.snapshot` 的销毁策略清理。
 
+## 8. 打包 Android APK
+
+XIAN 是 B/S 架构，APK 是 Capacitor 壳：内部是 WebView + 已构建的前端静态资源，
+后端地址在应用「登录页 → 服务器设置」里运行时指定，不写进安装包。
+工程已内置 `frontend/apps/web/capacitor.config.ts` 与 `frontend/apps/web/android/`。
+
+### 8.1 构建机依赖
+
+| 组件 | 版本 | 说明 |
+| --- | --- | --- |
+| JDK | 17 或 21 | Gradle 8.14 / AGP 8.x；**不要用 JDK 25**，Gradle 8.14 不支持 |
+| Android SDK | platform 36 + build-tools 36+ | `ANDROID_HOME` 或 `android/local.properties` 的 `sdk.dir` |
+| Node / pnpm | ≥ 20 / ≥ 9 | 编译前端产物 |
+
+### 8.2 一键构建
+
+```bash
+# 1) 编译前端（tsc -b && vite build）→ frontend/apps/web/dist
+pnpm --filter @xian/web build
+
+# 2) 把 dist 同步进 android 工程
+cd frontend/apps/web && npx cap sync android
+
+# 3) 出包（JAVA_HOME 指向 JDK 17/21）
+cd android
+JAVA_HOME="C:/Program Files/Android/Android Studio/jbr" ./gradlew assembleRelease
+```
+
+产物：
+
+| 文件 | 说明 |
+| --- | --- |
+| `android/app/build/outputs/apk/release/app-release.apk` | 已签名，可直接安装分发 |
+| `android/app/build/outputs/apk/debug/app-debug.apk` | 调试签名，供真机联调用 |
+
+### 8.3 签名密钥
+
+`android/app/build.gradle` 会读取 `android/keystore/keystore.properties`；该文件与
+`*.jks` 都已在 `.gitignore` 中，不会进仓库。缺省时 release 退化为未签名包，
+没有密钥库的环境仍能构建。
+
+首次生成密钥库：
+
+```bash
+cd frontend/apps/web/android
+mkdir keystore
+keytool -genkeypair -keystore keystore/xian-release.jks -alias xian \
+  -keyalg RSA -keysize 2048 -validity 10000 \
+  -dname "CN=XIAN, OU=RedBlue, O=XIAN, C=CN"
+# 然后把 store/key 口令写进 keystore/keystore.properties
+```
+
+```properties
+storeFile=keystore/xian-release.jks
+storePassword=<口令>
+keyAlias=xian
+keyPassword=<口令>
+```
+
+> 密钥库与口令只保存在构建机本地。换机构建前先备份 `xian-release.jks`，
+> 否则同一 `applicationId` 无法覆盖升级安装。
+
+### 8.4 安装与联调
+
+```bash
+adb install -r android/app/build/outputs/apk/release/app-release.apk
+adb logcat -s Capacitor:* chromium:* AndroidRuntime:*
+```
+
+- APK 只声明 `INTERNET` 权限，不读取任何设备数据。
+- 首次启动后在「登录页 → 服务器设置」填后端地址（如 `http://192.168.1.10:8000`）。
+- 后端若是明文 http，`capacitor.config.ts` 已开 `allowMixedContent`；
+  正式对外发布建议改用 https，并同步收紧该开关。
+
 ## 7. 上线前检查清单
 
 ```bash
