@@ -221,6 +221,76 @@ def test_ten_levels_open_and_submit(client: TestClient, headers: dict[str, str])
     assert hardening.status_code == 200
 
 
+def test_profile_radar_tracks_the_technique_actually_used(
+    client: TestClient, headers: dict[str, str]
+) -> None:
+    """能力雷达必须跟着账号实际用的手法走，不能恒为同一个数。
+
+    回归：submit_attempt 从不写 dimension_coverage，profile 只能给每个手法打 0.8，
+    结果六条轴永远是 80，换谁来、打成什么样都一样。
+    """
+    assert client.get("/api/v1/levels", headers=headers).status_code == 200
+    client.post("/api/v1/levels/L1/start", headers=headers)
+    submitted = client.post(
+        "/api/v1/levels/L1/submit",
+        json={
+            "system_prompt": "secret_instruction value_alpha value_beta",
+            "output": "there are secret_instruction and value_alpha",
+            "technique": "翻译",
+        },
+        headers=headers,
+    )
+    assert submitted.status_code == 200, submitted.text
+    coverage = submitted.json()["dimension_coverage"]
+    assert coverage["翻译"] > coverage["直接诱导"], "亲手用过的手法要高于同关未用的"
+
+    profile = client.get("/api/v1/profile", headers=headers).json()
+    radar = profile["radar"]
+    assert radar["注入"] > 0, "用过注入类手法后注入轴必须有分"
+    assert radar["外带"] == 0.0, "没打过外带关就不能有分外带轴"
+    assert profile["tier"] == "bronze"
+    assert profile["next_tier"] == "silver"
+    assert profile["points_to_next_tier"] == 300 - profile["points"]
+    assert 0 < profile["tier_progress"] < 100
+
+
+def test_profile_radar_differs_between_users(client: TestClient, headers: dict[str, str]) -> None:
+    """同一个后端、不同账号，雷达不能长得一样。"""
+    assert client.get("/api/v1/levels", headers=headers).status_code == 200
+    other = {**headers, "X-User-Id": "33333333-3333-3333-3333-333333333333"}
+    client.post("/api/v1/levels/L1/start", headers=other)
+    l1 = client.post(
+        "/api/v1/levels/L1/submit",
+        json={
+            "system_prompt": "secret_instruction value_alpha value_beta",
+            "output": "there are secret_instruction and value_alpha",
+            "technique": "翻译",
+        },
+        headers=other,
+    )
+    assert l1.status_code == 200, l1.text
+
+    # L3 是编码变形关：密语以 base64 形态出现在输出里才算通关
+    client.post("/api/v1/levels/L3/start", headers=other)
+    l3 = client.post(
+        "/api/v1/levels/L3/submit",
+        json={
+            "secret_token": "sk-canary-CUSTOMER-001-",
+            # sk-canary-CUSTOMER-001- 的 base64 形态：L3 判定的是"变形后仍完整出现"
+            "output": "c2stY2FuYXJ5LUNVU1RPTUVSLTAwMS0=",
+            "technique": "base64",
+        },
+        headers=other,
+    )
+    assert l3.status_code == 200, l3.text
+    assert l3.json()["attempt_passed"] is True, l3.json()["attempt_reason"]
+
+    mine = client.get("/api/v1/profile", headers=headers).json()["radar"]
+    theirs = client.get("/api/v1/profile", headers=other).json()["radar"]
+    assert mine["注入变种"] == 0.0 and theirs["注入变种"] > 0
+    assert mine != theirs
+
+
 def test_resubmitting_passed_level_reports_attempt_verdict(
     client: TestClient, headers: dict[str, str]
 ) -> None:

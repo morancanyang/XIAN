@@ -15,6 +15,7 @@ from xian_core.levels import (
     consume_hint,
     evaluate,
     is_unlocked,
+    merge_coverage,
     options_for,
     score_attempt,
 )
@@ -157,6 +158,14 @@ async def submit_attempt(code: str, body: dict, session: SessionDep, principal: 
         row.status = "passed"
         row.score = max(row.score or 0, score)
         row.completed_at = __import__("datetime").datetime.now(__import__("datetime").UTC)
+        # 能力雷达的数据来源：只写这里一次。此前 dimension_coverage 永远是 {}，
+        # profile 只能靠"通关过"给每个手法打 0.8，雷达六个轴恒为 80，跟账号表现无关。
+        row.dimension_coverage = merge_coverage(
+            existing=row.dimension_coverage,
+            level_techniques=list(level.techniques or []),
+            used=technique,
+            quality=row.score / 100,
+        )
     await session.commit()
     await session.refresh(row)
     out = LevelProgressOut.model_validate(row)

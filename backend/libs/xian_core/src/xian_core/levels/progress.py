@@ -81,6 +81,52 @@ def score_attempt(*, passed: bool, hints_used: list[str], technique: str, seen_t
     return max(10, base - penalty)
 
 
+#: 通关但未亲手使用的手法只记「接触过」：明显低于实际用手法的分值，避免雷达虚高。
+TECHNIQUE_EXPOSURE = 0.5
+
+
+def merge_coverage(
+    *,
+    existing: dict[str, float] | None,
+    level_techniques: Iterable[str],
+    used: str,
+    quality: float,
+) -> dict[str, float]:
+    """把手法的掌握度并进维度覆盖度（PRD 3.4.4 能力雷达的数据来源）。
+
+    只有亲手用过并通关的手法才按本次得分记满；同一关其余手法只记接触过。覆盖度取历史
+    最大值，重复提交更低分不会把已证明过的能力抹掉。
+    """
+    coverage = {str(k): float(v) for k, v in (existing or {}).items()}
+    if used:
+        coverage[used] = max(coverage.get(used, 0.0), float(quality))
+    for technique in level_techniques:
+        name = str(technique)
+        if not name or name == used:
+            continue
+        coverage[name] = max(coverage.get(name, 0.0), TECHNIQUE_EXPOSURE)
+    return coverage
+
+
+def next_tier_for(points: int) -> tuple[str | None, int]:
+    """返回 (下一档段位, 还差多少积分)；已是最高档时下一档为 None。"""
+    for code, threshold, _label in TIERS:
+        if points < threshold:
+            return code, threshold - points
+    return None, 0
+
+
+def tier_progress(points: int) -> float:
+    """当前档位区间内的晋级进度（0~100）；最高档恒为 100。"""
+    lower = TIERS[0][1]
+    for _code, threshold, _label in TIERS:
+        if points < threshold:
+            span = threshold - lower
+            return 100.0 if span <= 0 else round((points - lower) / span * 100.0, 1)
+        lower = threshold
+    return 100.0
+
+
 def award_badges(*, completed: list[str], hints_by_level: dict[str, list[str]]) -> list[str]:
     codes: set[str] = set()
     if completed:

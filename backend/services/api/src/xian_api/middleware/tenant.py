@@ -57,6 +57,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.window = window_s
         self._buckets: dict[str, tuple[float, int]] = {}
 
+    def reset(self) -> None:
+        # 桶按 tenant+IP 记在中间件实例上，而 app 是模块级单例、实例跨请求存活。
+        # 测试共用同一个 app：不清桶，前面用例耗掉的额度会让后面的用例吃到 429。
+        self._buckets.clear()
+
     async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         key = f"{request.state.tenant_id if hasattr(request.state, 'tenant_id') else 'anon'}:{request.client.host if request.client else 'anon'}"
         now = time.time()

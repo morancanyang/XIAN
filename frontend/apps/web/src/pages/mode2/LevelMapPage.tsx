@@ -10,7 +10,8 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-  Textarea
+  Textarea,
+  cn
 } from '@xian/ui';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { LevelMap } from '../../features/levels/components/LevelMap';
@@ -39,8 +40,15 @@ export default function LevelMapPage() {
   const [canaryValue, setCanaryValue] = useState('');
   const [systemPrompt, setSystemPrompt] = useState('');
   const [selected, setSelected] = useState<string | null>(currentCode);
+  const [pickedTechnique, setPickedTechnique] = useState<string>('');
 
   const selectedLevel = levels.data?.find((l) => l.id === selected) ?? null;
+  // 实际使用的手法：切换关卡后 pickedTechnique 可能已不属于这一关，回落到该关第一种。
+  // 之前这里恒取 techniques[0]，后端又只按这一个手法记覆盖度，雷达就永远是按关卡写死的。
+  const technique =
+    pickedTechnique && selectedLevel?.techniques.includes(pickedTechnique)
+      ? pickedTechnique
+      : (selectedLevel?.techniques[0] ?? '');
   const selectedProgress = progress.data?.find((p) => p.level_id === selected) ?? null;
   const hardening = useLevelHardening(selected ?? '');
 
@@ -99,10 +107,26 @@ export default function LevelMapPage() {
             {selectedLevel ? (
               <>
                 <p className="text-sm text-content-muted xian-cjk">{selectedLevel.goal}</p>
-                <div className="flex flex-wrap gap-1">
-                  {selectedLevel.techniques.map((t) => (
-                    <Badge key={t}>{t}</Badge>
-                  ))}
+                <div>
+                  <p className="mb-1 text-xs text-content-muted">本关手法（选中你实际用到的那种，会计入能力雷达）</p>
+                  <div className="flex flex-wrap gap-1">
+                    {selectedLevel.techniques.map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setPickedTechnique(t)}
+                        aria-pressed={technique === t}
+                        className={cn(
+                          'rounded-pill border px-2 py-0.5 text-xs font-medium transition-colors',
+                          technique === t
+                            ? 'border-coach/60 bg-coach/15 text-coach'
+                            : 'border-border bg-white/5 text-content-muted hover:border-coach/40 hover:text-content'
+                        )}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <Tabs defaultValue="submit">
@@ -160,7 +184,7 @@ export default function LevelMapPage() {
                             secret_fields: canaryValue ? { canary: canaryValue } : {},
                             memory_after_new_session: agentOutput,
                             time_used: 0,
-                            technique: selectedLevel.techniques[0]
+                            technique
                           });
                           if (res.attempt_passed) {
                             markCompleted(res.level_id, res.score);

@@ -393,6 +393,12 @@ export interface UserProfile {
   radar: Record<string, number>;
   points: number;
   tier: string;
+  /** 下一档段位；已是最高档时为 null。 */
+  next_tier: string | null;
+  /** 距下一档还差多少积分；已是最高档时为 0。 */
+  points_to_next_tier: number;
+  /** 当前档位区间内的晋级进度 0~100；最高档恒为 100。 */
+  tier_progress: number;
   badges: string[];
 }
 

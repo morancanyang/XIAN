@@ -18,6 +18,10 @@ export default function ProfilePage() {
   const radar = profile.data?.radar ?? {};
   const tier = profile.data?.tier ?? 'bronze';
   const points = profile.data?.points ?? 0;
+  // 段位阶梯由后端 TIERS 统一算，前端不再各自硬编码阈值
+  const nextTier = profile.data?.next_tier ?? null;
+  const toNext = profile.data?.points_to_next_tier ?? 0;
+  const tierProgress = profile.data?.tier_progress ?? 0;
 
   return (
     <div className="relative">
@@ -67,9 +71,10 @@ export default function ProfilePage() {
               <CardTitle>段位进度</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Progress value={Math.min(100, points / 20)} tone="coach" soft />
+              <Progress value={tierProgress} tone="coach" soft />
               <p className="text-xs text-content-muted">
-                当前段位 <span className="font-mono text-coach">{tier}</span>，再获得 {Math.max(0, 2000 - points)} 积分晋级。
+                当前段位 <span className="font-mono text-coach">{tier}</span>，
+                {nextTier ? `再获得 ${toNext} 积分晋级 ${nextTier}。` : '已是最高段位。'}
               </p>
               <div className="space-y-2 text-xs">
                 {(progress.data ?? []).slice(0, 8).map((p) => (

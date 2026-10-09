@@ -55,6 +55,11 @@ class UserProfileOut(StrictModel):
     radar: dict[str, float]
     points: int
     tier: str
+    # 段位阶梯由后端 TIERS 统一算：前端不再各自硬编码阈值，
+    # 之前写死 2000（钻石档），gold 用户会看到"再获得 1010 积分晋级"这种跳档文案。
+    next_tier: str | None = None
+    points_to_next_tier: int = 0
+    tier_progress: float = 0.0
     badges: list[str]
 
 
