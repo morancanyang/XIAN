@@ -20,6 +20,16 @@ from xian_core.schemas.common import Intensity
 ALL_CATEGORIES = ["XM-01", "XM-02", "XM-03", "XM-04", "XM-05", "XM-06", "XM-07", "XM-08", "XM-09", "XM-10", "XM-11", "XM-12", "XM-13", "XM-14"]
 
 
+def _topological_violations(nodes: list[dict]) -> list[tuple[str, str]]:
+    """返回“依赖出现在自己之后”的节点对；空列表表示顺序合法。"""
+    position = {node["id"]: index for index, node in enumerate(nodes)}
+    return [
+        (node["id"], dep)
+        for node in nodes
+        for dep in node.get("depends_on") or []
+        if dep in position and position[dep] > position[node["id"]]
+    ]
+
 def _plan(cases: int) -> dict:
     return build_plan(
         scope=ALL_CATEGORIES,
@@ -58,8 +68,7 @@ def test_budget_smaller_than_category_count_trims_nodes() -> None:
     for cases in (1, 3, 7):
         nodes = _plan(cases)["dag_nodes"]
         assert len(nodes) == cases, f"budget={cases} 却排了 {len(nodes)} 个节点"
-        weights = [node["weight"] for node in nodes]
-        assert weights == sorted(weights, reverse=True)
+        assert _topological_violations(nodes) == []
 
 
 def test_planned_cases_mirror_the_dag() -> None:
@@ -101,3 +110,28 @@ def test_planned_cases_falls_back_when_plan_is_unusable() -> None:
     assert _planned_cases(Campaign(**base)) == []
     stale = Campaign(**{**base, "plan_dag": {"dag_nodes": [{"id": "XM-01", "case_ids": ["XM-99-001"]}]}})
     assert _planned_cases(stale) == []
+
+
+def test_plan_order_respects_dependencies() -> None:
+    """规则③：提权/渗出类必须排在依赖的侦察/初始执行类之后。
+
+    节点列表既是详情页 DAG 的渲染顺序，也是执行器取用例的顺序。
+    之前按权重降序平铺，依赖只画在图上，提权用例会在侦察结果之前就跑完。
+    """
+    for cases in (14, 20, 40, 60):
+        nodes = _plan(cases)["dag_nodes"]
+        assert _topological_violations(nodes) == [], f"budget={cases} 存在逆依赖执行"
+
+
+def test_plan_order_puts_higher_weight_first_within_a_layer() -> None:
+    """同层内仍按权重降序：拓扑只负责依赖，不应把优先级拥拨掉。"""
+    nodes = _plan(40)["dag_nodes"]
+    for node in nodes:
+        deps = [d for d in node.get("depends_on") or [] if any(n["id"] == d for n in nodes)]
+        if not deps:
+            continue
+        position = {n["id"]: i for i, n in enumerate(nodes)}
+        layer_start = max(position[d] for d in deps) + 1
+        layer = nodes[layer_start : position[node["id"]]]
+        weights = [n["weight"] for n in layer]
+        assert weights == sorted(weights, reverse=True), f"{node[id]} 所在层未按权重降序"

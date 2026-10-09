@@ -89,6 +89,30 @@ def _weight(category_code: str, surface: AgentSurface, history: HistorySignal) -
     return round(max(weight, 0.05), 4)
 
 
+def _topological_order(nodes: list[DagNode]) -> list[DagNode]:
+    """Kahn 拓扑排序：依赖先行，同层内按权重降序。
+
+    规则③要求提权/渗出等前序上下文就位；节点原先按权重降序平铺，
+    依赖只画在图上，执行时该等的没等——提权用例会在侦察结果之前就跑完。
+    """
+    by_id = {node.id: node for node in nodes}
+    pending = {node.id: set(node.depends_on) & set(by_id) for node in nodes}
+    ordered: list[DagNode] = []
+    while pending:
+        ready = [by_id[nid] for nid, deps in pending.items() if not deps]
+        if not ready:
+            # 依赖成环时不能把战役卡死：按权重强制收尾
+            stuck = max(pending, key=lambda nid: by_id[nid].weight)
+            ready = [by_id[stuck]]
+        ready.sort(key=lambda node: -node.weight)
+        chosen = ready[0]
+        ordered.append(chosen)
+        del pending[chosen.id]
+        for deps in pending.values():
+            deps.discard(chosen.id)
+    return ordered
+
+
 def build_plan(
     *,
     scope: list[str],
@@ -130,6 +154,11 @@ def build_plan(
         for dep in node.depends_on:
             edges.append([dep, node.id])
 
+
+    # 执行顺序必须是拓扑序：提权/渗出类要等前序上下文就位（规则③）。
+    # 节点列表同时是详情页 DAG 的渲染顺序与执行器的取用例顺序，
+    # 在这里排好，图上的箭头才和实际跑序一致。
+    nodes = _topological_order(nodes)
     total_weight = sum(n.weight for n in nodes) or 1.0
     scaled_token = int(budget.token * profile["budget_factor"])
     # 权重比例直接取整会丢份额，max(1, ...) 又会向上溢出，
