@@ -28,6 +28,7 @@ import {
   useCreateSession,
   useMatrixCases,
   useMatrixCategories,
+  useMatrixCaseRender,
   useScenarioInstances,
   useSendMessage,
   useSessionMessages
@@ -53,6 +54,7 @@ export default function AttackConsolePage() {
   const messages = useSessionMessages(sessionId);
   const createSession = useCreateSession();
   const send = useSendMessage();
+  const renderCase = useMatrixCaseRender();
 
   const [agentId, setAgentId] = useState(activeAgentId ?? '');
   const [instanceId, setInstanceId] = useState('');
@@ -127,6 +129,13 @@ export default function AttackConsolePage() {
                   onPick={(c) => {
                     setSelectedCaseId(c.id);
                     setPendingCase({ id: c.id, title: c.title });
+                    // 选中即把渲染好的成品载荷填进输入框。原先只设置一个标题 chip，
+                    // 载荷要用户手打，结果输入框里躺着的多是用例标题本身——靶场只会
+                    // 回显，裁判翻遍 trace 也找不到证据，只能判"未发生"。
+                    renderCase.mutate(c.id, {
+                      onSuccess: (r) => setDraft(r.payload),
+                      onError: () => setDraft(c.payload_template)
+                    });
                   }}
                 />
               )}

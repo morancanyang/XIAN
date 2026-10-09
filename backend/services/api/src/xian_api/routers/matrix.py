@@ -13,7 +13,7 @@ from xian_core.redteam.strategies import (
     render_strategy,
     strategies_for_category,
 )
-from xian_core.schemas.attack import AttackCaseOut, AttackCategoryOut
+from xian_core.schemas.attack import AttackCaseOut, AttackCaseRenderOut, AttackCategoryOut
 
 from ..deps import PrincipalDep
 
@@ -49,6 +49,29 @@ async def case_detail(case_id: str, principal: PrincipalDep) -> AttackCaseOut:
     if case is None:
         raise HTTPException(404, f"用例 {case_id} 不存在")
     return case.to_out()
+
+
+@router.get("/cases/{case_id}/render", response_model=AttackCaseRenderOut)
+async def render_case(case_id: str, principal: PrincipalDep) -> AttackCaseRenderOut:
+    """把用例模板渲染成可直接下发的成品载荷（模式二武器库选中即填入输入框）。
+
+    与 `/cases/{case_id}/export` 的区别：export 返回未渲染的原始模板且仅 admin
+    可用；这里返回按默认变量渲染后的成品，变量未覆盖时原位保留 `{{占位符}}`。
+    """
+    from xian_core.cases import get_case, render_payload
+    from xian_core.redteam.payload import DEFAULT_VARIABLES
+
+    case = get_case(case_id)
+    if case is None:
+        raise HTTPException(404, f"用例 {case_id} 不存在")
+    payload = render_payload(case.payload_template, DEFAULT_VARIABLES)
+    missing = [v for v in case.variables if not str(DEFAULT_VARIABLES.get(v, "")).strip()]
+    return AttackCaseRenderOut(
+        case_id=case_id,
+        payload=payload,
+        variables=list(case.variables),
+        missing=missing,
+    )
 
 
 @router.get("/operators")

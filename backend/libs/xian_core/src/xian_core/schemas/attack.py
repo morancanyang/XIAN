@@ -53,6 +53,21 @@ class AttackCaseOut(StrictModel):
     contributor: str
 
 
+class AttackCaseRenderOut(StrictModel):
+    """武器库选中即用的成品载荷（模式二控制台）。
+
+    与 `AttackCaseOut.payload_template` 的区别：这里已经按默认变量渲染过，
+    未覆盖的变量原位保留 `{{占位符}}` 并在 `missing` 里列出，由使用者在
+    输入框补全。控制台原先只把用例标题透出来，用户只能手打载荷，打出去的
+    往往是标题本身，靶场只会回显，裁判永远判"未发生"。
+    """
+
+    case_id: str
+    payload: str
+    variables: list[str]
+    missing: list[str]
+
+
 class AttackCategoryOut(StrictModel):
     id: str
     code: str

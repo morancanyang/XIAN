@@ -429,6 +429,13 @@ export interface AttackCase {
   contributor: string;
 }
 
+export interface AttackCaseRender {
+  case_id: string;
+  payload: string;
+  variables: string[];
+  missing: string[];
+}
+
 export interface MutationOpSpec {
   name: string;
   type: string;

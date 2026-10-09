@@ -7,6 +7,7 @@ import type {
   AgentUpdate,
   AgentVersion,
   AttackCase,
+  AttackCaseRender,
   AttackCategory,
   AttackRecord,
   BaselineDeclaration,
@@ -321,6 +322,18 @@ export function useMatrixCases(category?: string) {
   return useQuery({
     queryKey: ['matrix-cases', category],
     queryFn: () => api.get<AttackCase[]>(ROUTES.matrixCases, category ? { category } : undefined)
+  });
+}
+
+/**
+ * 用例成品载荷：模板按默认变量渲染后的结果（模式二武器库选中即填入输入框）。
+ *
+ * 控制台原先选中用例只回一个标题 chip，载荷还要用户手打——于是输入框里出现的
+ * 往往是用例标题本身，靶场只会回显，裁判只能判"未发生"。
+ */
+export function useMatrixCaseRender() {
+  return useMutation({
+    mutationFn: (caseId: string) => api.get<AttackCaseRender>(ROUTES.matrixCaseRender(caseId))
   });
 }
 

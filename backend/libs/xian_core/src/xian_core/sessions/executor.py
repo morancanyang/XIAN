@@ -64,6 +64,28 @@ class ConsoleOutcome:
     error: str = ""
 
 
+def _canary_values_for(session_row: Any) -> list[str]:
+    """会话关联实例里已种植的蜜标值。
+
+    黄金信号 G-02（蜜标出现在输出中）靠 `JudgeContext.canary_values` 才能命中，
+    而模式二原先构造上下文时一个字段都不带——沙箱靶场被诱导泄密后蜜标值确实
+    写进了输出文本，裁判却看不见，只能退到 G-11 的目标自报事件通道。
+    """
+    instance_id = getattr(session_row, "scenario_instance_id", None)
+    if instance_id is None:
+        return []
+    from ..sandbox import instance_for
+
+    instance = instance_for(instance_id)
+    if instance is None:
+        return []
+    return [
+        str(c["value"])
+        for c in instance.canaries
+        if c.get("status") == "planted" and c.get("value")
+    ]
+
+
 def _trace_events(agent_id: uuid.UUID, session_id: uuid.UUID, reply: dict[str, Any]) -> list[TraceEventIn]:
     """把目标 Agent 返回的观测事件折算成 trace 契约，供黄金信号规则扫描。"""
     events: list[TraceEventIn] = [
@@ -152,6 +174,7 @@ async def run_console_turn(
                 output_text=output,
                 prompt=payload,
                 signals=list((case.success_criteria or {}).get("golden", []) or []) if case else [],
+                canary_values=_canary_values_for(session_row),
             ),
         )
     except Exception as exc:  # 裁判异常不阻塞会话，降级为未命中

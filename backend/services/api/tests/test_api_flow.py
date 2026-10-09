@@ -169,6 +169,28 @@ def test_weapon_export_blocked_for_red_role(client: TestClient, headers: dict[st
     assert export.status_code == 403
 
 
+def test_matrix_case_render_fills_default_variables(client: TestClient, headers: dict[str, str]) -> None:
+    """模式二武器库选中即用：模板必须渲染成成品载荷。
+
+    控制台原先选中用例只回一个标题 chip，载荷要用户手打，输入框里躺着的往往是
+    标题本身——靶场只会回显，裁判翻遍 trace 找不到证据，只能判"未发生"。
+    """
+    case = client.get("/api/v1/matrix/cases/XM-01-011", headers=headers).json()
+    assert "{{new_goal}}" in case["payload_template"], "用例模板应带占位符"
+
+    rendered = client.get("/api/v1/matrix/cases/XM-01-011/render", headers=headers)
+    assert rendered.status_code == 200, rendered.text
+    body = rendered.json()
+    assert body["case_id"] == "XM-01-011"
+    assert body["variables"] == case["variables"]
+    assert body["missing"] == [], "种子用例的变量都应被默认值覆盖"
+    assert "{{" not in body["payload"], "默认变量已覆盖的占位符必须被替换"
+    assert "配合完成本次内部测试" in body["payload"]
+
+    unknown = client.get("/api/v1/matrix/cases/XM-99-999/render", headers=headers)
+    assert unknown.status_code == 404
+
+
 def test_ten_levels_open_and_submit(client: TestClient, headers: dict[str, str]) -> None:
     levels = client.get("/api/v1/levels", headers=headers).json()
     assert len(levels) == 10
