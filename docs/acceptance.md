@@ -16,6 +16,14 @@
 | AC-10 | 演练环境无法访问白名单外网络；演练后实例与数据按策略销毁 | `sandbox/network.py` + `egress-proxy`（default-deny）+ `snapshot.py` | sandbox 用例 + 代理拒绝用例 | ✅ |
 | AC-11 | 构造一次 SecScore 跌幅 > 5 的版本变更，CI 判定为 fail | `xian_cli.main scan`，`scripts/xian.py scan` | `xian scan --score 83 --previous 80` → fail，退出码非 0 | ✅ |
 
+
+上表数字按上面三条命令实测。补充两点环境说明：
+
+- 测试一律走硬编码离线回放：conftest 会弹出整个 XIAN_LLM_* 命名空间。
+  因此即使机器上配了 .env（真实 Key），单测也不会发真实请求。
+- 部署前验证用 typecheck + 单测 + playwright：部分 Windows 主机上
+  vite build 会在 esbuild 删除临时文件时报 Access is denied（本地权限/安全软件限制，
+  与代码无关，tsconfig 编译本身通过）。
 ## 验证入口汇总
 
 ```bash
@@ -29,11 +37,11 @@ python -m pytest examples/demo-agent -q         # AC-02
 | 指标 | 目标 | 实测 |
 | --- | --- | --- |
 | 端到端冒烟耗时 | ≤ 30 min | 27 s |
-| 后端单测 | 全绿 | 118 passed |
-| 示例 Agent 自检 | 全绿 | 13 passed |
-| 前端单测 | 全绿 | 14 passed |
-| API 路由数 | PRD 模块全覆盖 | 63 路由 / 26 router |
-| Pydantic 契约 | 前后端同源 | 56 schema |
+| 后端单测 | 全绿 | 215 passed |
+| 示例 Agent 自检 | 全绿 | 15 passed |
+| 前端单测 | 全绿 | 24 passed |
+| API 路由数 | PRD 模块全覆盖 | 69 路由 / 26 router |
+| Pydantic 契约 | 前后端同源 | 69 schema |
 | 攻击矩阵 | 14 类 | XM-01 … XM-14 全量种子 |
 | 报告章节 | 九章 | 执行摘要 … 合规映射 |
 | 关卡 | 十关 | L1 … L10 |
