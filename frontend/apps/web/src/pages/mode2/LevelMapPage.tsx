@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Badge,
   Button,
@@ -33,7 +33,6 @@ export default function LevelMapPage() {
   const markCompleted = useLevelStore((s) => s.markCompleted);
   const energy = useConsoleStore((s) => s.energy);
   const setEnergy = useConsoleStore((s) => s.setEnergy);
-  const markHintUsed = useConsoleStore((s) => s.useHint);
   const toast = useToast();
 
   const [agentOutput, setAgentOutput] = useState('');
@@ -44,6 +43,12 @@ export default function LevelMapPage() {
   const selectedLevel = levels.data?.find((l) => l.id === selected) ?? null;
   const selectedProgress = progress.data?.find((p) => p.level_id === selected) ?? null;
   const hardening = useLevelHardening(selected ?? '');
+
+  // 能量按关卡各自记账（后端 level_progress.energy_left）：切换关卡时把徽标同步到
+  // 当前关卡的剩余能量，不然它还显示上一关扣过的数值，像没扣一样。
+  useEffect(() => {
+    setEnergy(selectedProgress?.energy_left ?? 100);
+  }, [selectedProgress?.energy_left, setEnergy]);
 
   return (
     <div>
@@ -177,36 +182,41 @@ export default function LevelMapPage() {
                   </TabsContent>
 
                   <TabsContent value="hints" className="space-y-3">
-                    {(['H1', 'H2', 'H3'] as const).map((h) => (
-                      <div key={h} className="flex items-start gap-3 rounded-control border border-border bg-elevated p-3">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-semibold">{h} 提示</p>
-                          <p className="mt-1 text-[11px] text-content-muted xian-cjk">
-                            {(selectedLevel.hints?.[h] ?? '暂无').slice(0, 60)}
-                            {(selectedLevel.hints?.[h]?.length ?? 0) > 60 ? '…' : ''}
-                          </p>
+                    {(['H1', 'H2', 'H3'] as const).map((h) => {
+                      const used = (selectedProgress?.hints_used ?? []).includes(h);
+                      return (
+                        <div key={h} className="flex items-start gap-3 rounded-control border border-border bg-elevated p-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold">{h} 提示</p>
+                            {/* 没花钱不展示内容：原先列表里直接截断预览，H3 的近似 payload 等于白给 */}
+                            <p className="mt-1 text-[11px] text-content-muted xian-cjk">
+                              {used ? (selectedLevel.hints?.[h] ?? '暂无') : '使用后显示'}
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={!selected || used}
+                            loading={hint.isPending}
+                            onClick={async () => {
+                              if (!selected) return;
+                              try {
+                                const res = await hint.mutateAsync({ code: selected, hint_level: h });
+                                setEnergy(res.energy_left);
+                                toast.info(
+                                  `已使用 ${h} · 扣除 ${res.energy_cost} 能量`,
+                                  `剩余能量 ${res.energy_left}：${res.content}`
+                                );
+                              } catch (e) {
+                                toast.error('提示不可用', errorMessage(e));
+                              }
+                            }}
+                          >
+                            {used ? '已用' : '使用'}
+                          </Button>
                         </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={!selected || (selectedProgress?.hints_used ?? []).includes(h)}
-                          loading={hint.isPending}
-                          onClick={async () => {
-                            if (!selected) return;
-                            try {
-                              const res = await hint.mutateAsync({ code: selected, hint_level: h });
-                              setEnergy(res.energy_left);
-                              markHintUsed(h);
-                              toast.info(`已使用 ${h}`, res.content.slice(0, 60));
-                            } catch (e) {
-                              toast.error('提示不可用', errorMessage(e));
-                            }
-                          }}
-                        >
-                          {selectedProgress?.hints_used?.includes(h) ? '已用' : '使用'}
-                        </Button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </TabsContent>
 
                   <TabsContent value="hardening">

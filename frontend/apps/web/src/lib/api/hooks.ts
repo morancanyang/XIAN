@@ -378,9 +378,13 @@ export function useStartLevel() {
 }
 
 export function useHint() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: { code: string; hint_level: string }) =>
-      api.post<HintResult>(ROUTES.levelHint(body.code), { hint_level: body.hint_level })
+      api.post<HintResult>(ROUTES.levelHint(body.code), { hint_level: body.hint_level }),
+    // 不失效进度查询的话，hints_used 一直是旧值：按钮停在高"使用"状态，
+    // 用户可以反复点同一级提示，界面看不出任何变化。
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['level-progress'] })
   });
 }
 
