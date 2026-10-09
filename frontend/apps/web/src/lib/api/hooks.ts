@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from './client';
 import type {
   Agent,
+  AgentStatus,
   AgentProfile,
   AgentUpdate,
   AgentVersion,
@@ -46,10 +47,19 @@ import { ROUTES } from '@xian/types';
 
 /* ---------- Agent 资产 ---------- */
 
-export function useAgents(params: { page?: number; size?: number; keyword?: string } = {}) {
+export function useAgents(
+  params: { page?: number; size?: number; keyword?: string; status?: AgentStatus | 'all' } = {}
+) {
+  // 'all' 是前端的"不限"占位，不能透传给后端：后端用「缺省该参数」表示不限，
+  // 真传过去会撞上 AgentStatus 枚举校验直接 422。
+  const { status, ...rest } = params;
   return useQuery({
     queryKey: ['agents', params],
-    queryFn: () => api.get<Page<Agent>>(ROUTES.agents, params)
+    queryFn: () =>
+      api.get<Page<Agent>>(ROUTES.agents, {
+        ...rest,
+        status: status && status !== 'all' ? status : undefined
+      })
   });
 }
 

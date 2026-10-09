@@ -121,8 +121,17 @@ class AuditRepository(Repository[AuditLog]):
 class AgentRepository(Repository[Agent]):
     model = Agent
 
-    async def active_for_tenant(self) -> Sequence[Agent]:
-        stmt = self._base_query().where(Agent.status == "active").order_by(Agent.created_at.desc())
+    async def for_tenant(self, status: str | None = None) -> Sequence[Agent]:
+        """按租户取资产；``status`` 为空返回全部状态。
+
+        原实现写死 ``status == "active"``，刚接入、尚未完成归属校验的资产在列表和
+        各处 Agent 选择器里直接消失——用户看不到自己刚建的东西，也没法选中它去打演练。
+        调用方（前端状态筛选 / 控制台与建战役的下拉）需要什么状态自己传。
+        """
+        stmt = self._base_query()
+        if status:
+            stmt = stmt.where(Agent.status == status)
+        stmt = stmt.order_by(Agent.created_at.desc())
         return (await self.session.execute(stmt)).scalars().all()
 
 

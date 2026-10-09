@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from xian_core.agents import (
     apply_update,
     build_agent,
@@ -43,6 +43,7 @@ from xian_core.schemas.agent import (
     AgentCreate,
     AgentOut,
     AgentProfileOut,
+    AgentStatus,
     AgentUpdate,
     AgentVersionCreate,
     AgentVersionOut,
@@ -60,9 +61,15 @@ router = APIRouter(prefix="/agents", tags=["agents"])
 
 
 @router.get("", response_model=Page[AgentOut])
-async def list_agents(session: SessionDep, principal: PrincipalDep, page: PageParams = Depends()) -> Page[AgentOut]:
+async def list_agents(
+    session: SessionDep,
+    principal: PrincipalDep,
+    page: PageParams = Depends(),
+    status: AgentStatus | None = Query(default=None, description="按状态过滤；缺省返回全部状态"),
+) -> Page[AgentOut]:
+    """租户资产列表。缺省返回全部状态，前端状态筛选与各处 Agent 选择器才能看到未校验资产。"""
     repo = AgentRepository(session, principal.tenant_id)
-    rows = await repo.active_for_tenant()
+    rows = await repo.for_tenant(status=str(status) if status else None)
     total = len(rows)
     start = (page.page - 1) * page.size
     return Page(items=[to_out(r) for r in rows[start : start + page.size]], total=total, page=page.page, size=page.size)

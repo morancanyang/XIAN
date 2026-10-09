@@ -42,11 +42,12 @@ export default function AgentsPage() {
   const [status, setStatus] = useState<AgentStatus | 'all'>('all');
   const [createOpen, setCreateOpen] = useState(false);
 
-  const query = useAgents({ page, size, keyword: keyword || undefined });
+  // 状态下发到服务端过滤：客户端过滤只作用于当前页，资产数超过一页时会漏。
+  const query = useAgents({ page, size, keyword: keyword || undefined, status });
   const create = useCreateAgent();
   const toast = useToast();
 
-  const rows = (query.data?.items ?? []).filter((a) => status === 'all' || a.status === status);
+  const rows = query.data?.items ?? [];
 
   const columns: Column<Agent>[] = [
     {
