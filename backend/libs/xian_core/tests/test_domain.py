@@ -81,6 +81,42 @@ def test_dns_verification_dev_wildcard(monkeypatch) -> None:
     assert verify_dns("agent-a.corp.com", nonce)["result"] == "failed"
 
 
+def test_dns_verification_always_explains_itself() -> None:
+    """Regression: verify_dns must emit a reason on every branch.
+
+    record_verification() builds detail from result["reason"]; when DNS
+    verification omitted that key the API answered with a bare result and the
+    onboarding wizard showed nothing but a "verified" badge.
+    """
+    nonce = make_nonce()
+    monkey = pytest.MonkeyPatch()
+    try:
+        monkey.setenv("XIAN_VERIFY_TXT", "127.0.0.1=xian-verify=*")
+        ok = verify_dns("127.0.0.1", nonce)
+        assert ok["result"] == "verified"
+        assert ok["reason"], "verified 也要说明命中的是哪条记录"
+        assert "xian-verify=" in ok["reason"]
+
+        no_record = verify_dns("agent-a.corp.com", nonce)
+        assert no_record["result"] == "failed"
+        assert no_record["reason"], "失败更要说明缺什么"
+        assert "TXT" in no_record["reason"]
+    finally:
+        monkey.undo()
+
+
+def test_dns_verification_reason_lists_mismatched_records(monkeypatch) -> None:
+    """解析到了记录但都对不上时，要说清"看到了几条、差在哪"。"""
+    nonce = make_nonce()
+    other = make_nonce()
+    monkeypatch.setenv("XIAN_VERIFY_TXT", f"agent-a.corp.com=xian-verify={other}")
+    failed = verify_dns("agent-a.corp.com", nonce)
+    assert failed["result"] == "failed"
+    assert failed["records_seen"] == 1
+    assert "1 条" in failed["reason"]
+    assert f"xian-verify={nonce}" in failed["reason"]
+
+
 def test_image_digest_validation() -> None:
     bad = verify_image_digest("not-a-digest")
     assert bad["result"] == "failed"

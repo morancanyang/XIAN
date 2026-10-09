@@ -126,8 +126,13 @@ export default function AgentDetailPage() {
                     />
                   </Field>
                   <CodeBlock>
-                    {`# DNS TXT 方式：在域名解析中添加一条 TXT 记录
-${effectiveTarget}.  IN TXT  "域名=xian-verify=<nonce>"`}
+                    {method === 'dns_txt'
+                      ? verify.data?.nonce
+                        ? `# 在域名解析中添加下面这条 TXT 记录，保存后重新点「开始校验」
+${effectiveTarget}.  IN TXT  "xian-verify=${verify.data.nonce}"`
+                        : '# 先点下方「开始校验」生成一次性校验值，再按这里给出的记录去配 DNS'
+                      : `# 提供镜像 ${effectiveTarget || '<image>'} 的不可变摘要
+image@sha256:<64位十六进制>`}
                   </CodeBlock>
                   <Button
                     loading={verify.isPending}
@@ -149,6 +154,11 @@ ${effectiveTarget}.  IN TXT  "域名=xian-verify=<nonce>"`}
                         结果：<Badge tone={verify.data.result === 'verified' ? 'success' : 'warning'}>{verify.data.result}</Badge>
                       </p>
                       <p className="mt-1 text-content-muted">{verify.data.detail}</p>
+                      {verify.data.result !== 'verified' ? (
+                        <p className="mt-1 text-content-faint">
+                          校验值不会变：补齐记录后重新点一次「开始校验」即可。
+                        </p>
+                      ) : null}
                     </div>
                   ) : null}
                 </div>

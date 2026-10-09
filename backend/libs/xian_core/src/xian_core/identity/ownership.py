@@ -83,14 +83,38 @@ def verify_dns(domain: str, nonce: str, *, expected: str | None = None) -> dict[
     target = expected or f"{TXT_PREFIX}{nonce}"
     # 通配记录命中即算通过：接入向导每给一个新 Agent 生成新 nonce，
     # 写死单个 nonce 的注入会让第二个 Agent 的校验必然失败。
-    matched = any(r.strip() == WILDCARD_RECORD for r in records) or any(target in rec for rec in records)
-    return {
+    wildcard = any(r.strip() == WILDCARD_RECORD for r in records)
+    matched = wildcard or any(target in rec for rec in records)
+    payload: dict[str, Any] = {
         "method": OwnershipMethod.dns_txt.value,
         "target": domain,
         "nonce": nonce,
         "result": OwnershipResult.verified.value if matched else OwnershipResult.failed.value,
         "records_seen": len(records),
     }
+    # reason 必须在每条分支都显式给出：record_verification() 的 detail 直接取
+    # result["reason"]，漏掉这个键，接口就只剩一个 result 字段，前端除了一个
+    # verified 徽标什么都看不到，用户完全不知道刚才校验了什么、失败又缺什么。
+    if wildcard:
+        note = ""
+        if domain.lower() in _injected_txt():
+            note = "（本地演示由 XIAN_VERIFY_TXT 注入，并非真实公网 DNS 解析）"
+        payload["reason"] = (
+            f"{domain} 命中通配记录 {WILDCARD_RECORD}，视为已持有该域名{note}。本次校验值：{target}"
+        )
+    elif matched:
+        payload["reason"] = f"{domain} 的 TXT 记录中命中 {target}，域名归属已确认。"
+    elif records:
+        payload["reason"] = (
+            f"{domain} 解析到 {len(records)} 条 TXT 记录，但没有一条等于 {target}。"
+            "请按上方指引补齐该记录后重新校验（DNS 生效通常需要几分钟）。"
+        )
+    else:
+        payload["reason"] = (
+            f"{domain} 没有解析到任何 TXT 记录。请按上方指引添加 {target}，"
+            "保存后等待 DNS 生效再重新校验。"
+        )
+    return payload
 
 
 def verify_image_digest(declared: str, observed: str | None = None) -> dict[str, Any]:
