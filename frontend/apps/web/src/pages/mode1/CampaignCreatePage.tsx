@@ -52,6 +52,8 @@ export default function CampaignCreatePage() {
   const [judgeMode, setJudgeMode] = useState<JudgeMode>('standard');
   const [outputMode, setOutputMode] = useState<OutputMode>('summary');
   const [budget, setBudget] = useState<Budget>({ token: 200_000, cases: 60, minutes: 30 });
+  // 层内并发度：同一依赖层里互不依赖的用例并行投放（后端默认 4，夹在 1~16）
+  const [concurrency, setConcurrency] = useState(4);
   const [plan, setPlan] = useState<CampaignPlan | null>(null);
 
   const create = useCreateCampaign();
@@ -203,6 +205,20 @@ export default function CampaignCreatePage() {
                   onChange={(e) => setBudget((b) => ({ ...b, minutes: Number(e.target.value) }))}
                 />
               </Field>
+              <Field
+                label="并发投放数"
+                id="b-concurrency"
+                hint="同一依赖层内互不依赖的用例并行执行；跨层仍按 kill chain 顺序等待前序上下文"
+              >
+                <Input
+                  id="b-concurrency"
+                  type="number"
+                  min={1}
+                  max={16}
+                  value={concurrency}
+                  onChange={(e) => setConcurrency(Math.max(1, Math.min(16, Number(e.target.value) || 1)))}
+                />
+              </Field>
             </CardContent>
           </Card>
         </div>
@@ -249,6 +265,7 @@ export default function CampaignCreatePage() {
                       scope,
                       intensity,
                       budget,
+                      constraints: { concurrency },
                       judge_mode: judgeMode,
                       output_mode: outputMode
                     });

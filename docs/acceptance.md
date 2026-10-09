@@ -30,6 +30,8 @@
   原先 remediation 里手写了一张 XM-xx -> stage 码表，14 类中 11 类与种子数据不符
   （XM-05 渗出被算成投递、XM-13 侦察被算成渗出、XM-08/09/12 影响被算成提权或投递），
   报告的 kill chain 与战役 DAG 的阶段列因此互相矛盾。
+- 创建向导暴露"并发投放数"（默认 4，夹在 1~16），随 constraints.concurrency 落库；
+  后端 execute_campaign 读取该值作为层内 Semaphore 上限。
 - 战役执行按 DAG 依赖分层并发（PRD 3.3.5.8.1 规则③）：同层无依赖用例并发投放，
   默认并发度 4，可用战役 constraints.concurrency 覆盖（夹在 1~16）。
   投放与事件播报并发、落库串行；token 记账跟随投放，预算熔断在层内即可刹住。
@@ -49,7 +51,7 @@ python -m pytest examples/demo-agent -q         # AC-02
 | 端到端冒烟耗时 | ≤ 30 min | 27 s |
 | 后端单测 | 全绿 | 230 passed |
 | 示例 Agent 自检 | 全绿 | 15 passed |
-| 前端单测 | 全绿 | 24 passed |
+| 前端单测 | 全绿 | 27 passed |
 | API 路由数 | PRD 模块全覆盖 | 69 路由 / 26 router |
 | Pydantic 契约 | 前后端同源 | 69 schema |
 | 攻击矩阵 | 14 类 | XM-01 … XM-14 全量种子 |
