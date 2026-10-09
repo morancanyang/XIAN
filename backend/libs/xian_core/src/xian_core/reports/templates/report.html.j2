@@ -83,8 +83,12 @@
   {% for item in report.high_risk_cases %}
   <div>
     <h3>{{ loop.index }}. {{ item.title }} <span class="sev-{{ item.severity }}">{{ item.severity|upper }}</span></h3>
-    <pre><code>{{ item.payload }}</code></pre>
-    <div>判定：{{ item.verdict }}（置信度 {{ '%.2f'|format(item.confidence) }}）；命中规则：{{ item.golden_rules|join('、') if item.golden_rules else '无' }}；trace：<code>{{ item.trace_ref }}</code></div>
+    <div>用例 <code>{{ item.case_id }}</code>（{{ item.category_code }}）；策略 {{ item.strategy or '未标注' }}；{{ item.turns }} 轮 / {{ item.tokens }} tokens；置信度 {{ '%.2f'|format(item.confidence) }}</div>
+    {% if item.mutation_ops %}<div>变异算子：{{ item.mutation_ops|join(' → ') }}</div>{% endif %}
+    <div>判定：{{ item.verdict }}</div>
+    <div>命中规则：{% for rule in item.golden_rules or [] %}<span class="sev-{{ rule.severity }}">{{ rule.rule_id }}</span> {{ rule.detail }}{% if not loop.last %}；{% endif %}{% else %}无{% endfor %}</div>
+    <div>判定依据：{% for ev in item.evidence or [] %}<div><code>{{ ev.matched_text }}</code> 命中 <code>{{ ev.pattern }}</code></div>{% else %}无{% endfor %}</div>
+    <div>trace：<code>{{ item.trace_ref }}</code></div>
   </div>
   {% endfor %}
 </section>
@@ -94,7 +98,7 @@
   {% for finding in report.findings %}
   <div>
     <h3>{{ finding.root_cause_code }} <span class="sev-{{ finding.severity }}">{{ finding.severity|upper }}</span></h3>
-    <div>定位：{{ finding.affected_config.kind if finding.affected_config.kind else finding.affected_config }}；证据 {{ finding.evidence|length }} 条</div>
+    <div>定位：{{ finding.affected_config.kind }}{{ '：' ~ finding.affected_config.value if finding.affected_config.value }}；证据 {{ finding.evidence|length }} 条</div>
     <ul>{% for rec in finding.recommendations %}<li><b>{{ rec.priority }}</b> {{ rec.playbook_ref }}（成本 {{ rec.effort }}）{{ rec.expected_effect }}</li>{% endfor %}</ul>
   </div>
   {% endfor %}
@@ -108,11 +112,24 @@
 
 <section>
   <h2>八、复测对比</h2>
+  {# 逐版本指标只在真的有数据时才画列：Agent 版本快照默认只存元数据，拿不到就显示 — #}
+  {% set with_metrics = report.retest.versions | map(attribute='sec_score') | reject('none') | list | length > 0 %}
   <table>
-    <tr><th>版本</th><th>SecScore</th><th>ASR</th><th>基线通过率</th></tr>
-    {% for row in report.retest.versions %}<tr><td>{{ row.version }}</td><td>{{ row.sec_score }}</td><td>{{ '%.1f'|format(row.asr * 100) }}%</td><td>{{ '%.1f'|format(row.baseline_pass_rate * 100) }}%</td></tr>{% endfor %}
+    <tr>
+      <th>版本快照</th>{% if with_metrics %}<th>SecScore</th><th>ASR</th><th>基线通过率</th>{% endif %}
+      <th>prompt hash</th><th>来源</th><th>工具数</th><th>登记时间</th>
+    </tr>
+    {% for row in report.retest.versions %}<tr>
+      <td><code>{{ row.version }}</code></td>
+      {% if with_metrics %}<td>{{ row.sec_score if row.sec_score is not none else '—' }}</td><td>{{ '%.1f'|format(row.asr * 100) ~ '%' if row.asr is not none else '—' }}</td><td>{{ '%.1f'|format(row.baseline_pass_rate * 100) ~ '%' if row.baseline_pass_rate is not none else '—' }}</td>{% endif %}
+      <td><code>{{ row.prompt_hash or '—' }}</code></td>
+      <td>{{ row.source or '—' }}</td>
+      <td>{{ row.tools if row.tools is not none else '—' }}</td>
+      <td>{{ row.created_at or '—' }}</td>
+    </tr>{% endfor %}
   </table>
   {% if report.retest.regression_failed %}<p class="sev-critical">检测到回归：SecScore 跌幅超过 5 分，门禁判定 fail（AC-11）。</p>{% endif %}
+  {% if not with_metrics %}<p>版本快照来自 Agent 资产登记记录，暂未携带逐版本 SecScore / ASR / 基线通过率，整改后重新生成报告即可对比。</p>{% endif %}
 </section>
 
 <section>

@@ -7,6 +7,7 @@ import os
 os.environ.setdefault("XIAN_DB_DSN_OVERRIDE", "sqlite+aiosqlite://")
 
 from xian_core.remediation import build_attack_path
+from xian_core.reports.export import render_html, render_markdown
 from xian_core.reports.render import build_report_payload
 
 
@@ -86,14 +87,16 @@ def test_report_payload_exposes_every_chapter() -> None:
     assert len(payload["high_risk_cases"]) == 1
 
 
-def _payload(records: list[dict]) -> dict:
+def _payload(records: list[dict], versions: list[dict] | None = None) -> dict:
     return build_report_payload(
         tenant_id="11111111-1111-1111-1111-111111111111",
         subject_type="campaign",
         subject_id="22222222-2222-2222-2222-222222222222",
         agent={"name": "demo", "access_type": "http", "ownership_verified": True, "baseline": {"has_rag": True}},
         records=records,
-        versions=[
+        versions=versions
+        if versions is not None
+        else [
             {"version": 1, "prompt_hash": "aaa", "source": "manual", "created_at": "2026-10-01T00:00:00", "tools": 1},
             {"version": 2, "prompt_hash": "bbb", "source": "auto", "created_at": "2026-10-02T00:00:00", "tools": 2},
         ],
@@ -220,3 +223,51 @@ def test_compliance_maps_clause_names() -> None:
     assert all(c["categories"] for c in clauses), "每个条款都要能回溯到命中的类别"
     # 第三个框架此前永远为空：条款来自 frameworks.yaml，不能漏
     assert "生成式人工智能服务管理暂行办法" in frameworks
+
+
+def test_export_renders_versions_without_metrics() -> None:
+    """历史 payload 的版本行只有元数据：导出不能 500，也不能把缺分数当成 0 分。"""
+    records = [_record("XM-01-001", "XM-01", "success"), _record("XM-04-002", "XM-04", "fail")]
+    payload = _payload(records, versions=[
+        {"version": "v1", "prompt_hash": "aaa", "source": "manual", "tools": 1, "created_at": "t1"},
+        {"version": "v2", "prompt_hash": "bbb", "source": "auto", "tools": 2, "created_at": "t2"},
+    ])
+    assert payload["retest"]["regression_failed"] is False, "缺 SecScore 不该被误判成回归"
+    html = render_html(payload)
+    assert "v1" in html and "bbb" in html
+    assert "登记时间" in html, "没有逐版本指标时要退回版本元数据列"
+    assert "<th>SecScore</th>" not in html, "没有逐版本指标时不应画 SecScore 列"
+    md = render_markdown(payload)
+    assert "| 版本快照 |" in md
+    assert "暂未携带逐版本" in md
+
+
+def test_export_renders_version_metrics_when_present() -> None:
+    """调用方真的带了逐版本指标时，第八章要画指标列而不是丢数据。"""
+    records = [_record("XM-01-001", "XM-01", "success")]
+    payload = _payload(records, versions=[
+        {"version": "v1", "sec_score": 90, "asr": 0.1, "baseline_pass_rate": 0.95},
+        {"version": "v2", "sec_score": 80, "asr": 0.2, "baseline_pass_rate": 0.9},
+    ])
+    assert payload["retest"]["regression_failed"] is True
+    chapter = render_html(payload).split("八、复测对比")[1].split("</section>")[0]
+    assert "90" in chapter and "10.0%" in chapter and "95.0%" in chapter
+    assert "检测到回归" in chapter
+
+
+def test_export_high_risk_cases_render_rule_and_evidence() -> None:
+    """第五章要渲染命中规则与判定依据，不能留下空 payload 块和 dict repr。"""
+    records = [
+        dict(
+            _record("XM-01-001", "XM-01", "success"),
+            golden_rules=[{"rule_id": "G-08", "severity": "critical", "detail": "蜜标外泄"}],
+            evidence=[{"pattern": "sk-canary-", "matched_text": "sk-canary-demo"}],
+        )
+    ]
+    payload = _payload(records)
+    html = render_html(payload)
+    assert "G-08" in html and "蜜标外泄" in html
+    assert "sk-canary-demo" in html
+    assert "{'rule_id'" not in html, "命中规则不能渲染成 Python dict repr"
+    md = render_markdown(payload)
+    assert "G-08" in md and "sk-canary-demo" in md

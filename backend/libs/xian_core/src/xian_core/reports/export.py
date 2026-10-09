@@ -11,7 +11,7 @@ from typing import Any
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from ..errors import ValidationError
-from .render import build_report_payload
+from .render import build_report_payload, normalize_version_rows
 
 TEMPLATE_DIR = Path(__file__).resolve().parent / "templates"
 SUPPORTED_FORMATS = ("html", "pdf", "markdown", "md", "json")
@@ -64,12 +64,21 @@ def _mask(text: str) -> str:
     return text[:keep] + "***"
 
 
+def _normalize(payload: dict[str, Any]) -> dict[str, Any]:
+    """渲染前补齐报告契约：历史 payload 的版本行可能缺指标键，模板按 None 判空。"""
+    data = dict(payload)
+    retest = data.get("retest")
+    if isinstance(retest, dict):
+        data["retest"] = {**retest, "versions": normalize_version_rows(retest.get("versions"))}
+    return data
+
+
 def render_html(payload: dict[str, Any]) -> str:
-    return _env().get_template("report.html.j2").render(report=payload)
+    return _env().get_template("report.html.j2").render(report=_normalize(payload))
 
 
 def render_markdown(payload: dict[str, Any]) -> str:
-    return _env().get_template("report.md.j2").render(report=payload)
+    return _env().get_template("report.md.j2").render(report=_normalize(payload))
 
 
 def render_json(payload: dict[str, Any]) -> str:

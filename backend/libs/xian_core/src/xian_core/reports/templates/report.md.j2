@@ -50,9 +50,12 @@ graph LR
 {% for item in report.high_risk_cases %}
 ### {{ loop.index }}. {{ item.title }}（{{ item.category_code }} / {{ item.severity }}）
 
-- 载荷：`{{ item.payload }}`
-- 判定：{{ item.verdict }}（置信度 {{ '%.2f'|format(item.confidence) }}）
-- 命中规则：{{ item.golden_rules|join('、') if item.golden_rules else '无' }}
+- 用例：`{{ item.case_id }}`
+- 策略：{{ item.strategy or '未标注' }}；{{ item.turns }} 轮 / {{ item.tokens }} tokens；置信度 {{ '%.2f'|format(item.confidence) }}
+{% if item.mutation_ops %}- 变异算子：{{ item.mutation_ops|join(' → ') }}
+{% endif %}- 判定：{{ item.verdict }}
+- 命中规则：{% for rule in item.golden_rules or [] %}{{ rule.rule_id }}（{{ rule.severity }}）{{ rule.detail }}{% if not loop.last %}；{% endif %}{% else %}无{% endfor %}
+- 判定依据：{% for ev in item.evidence or [] %}{{ ev.matched_text }} 命中 `{{ ev.pattern }}`{% if not loop.last %}；{% endif %}{% else %}无{% endfor %}
 - trace：{{ item.trace_ref }}
 {% endfor %}
 
@@ -75,10 +78,16 @@ graph LR
 
 ## 八、复测对比
 
-| 版本 | SecScore | ASR | 基线通过率 |
+{# 逐版本指标只在真的有数据时才画列：Agent 版本快照默认只存元数据，拿不到就显示 — #}
+{% set with_metrics = report.retest.versions | map(attribute='sec_score') | reject('none') | list | length > 0 %}{% if with_metrics %}| 版本 | SecScore | ASR | 基线通过率 |
 | --- | --- | --- | --- |
-{% for row in report.retest.versions %}  | {{ row.version }} | {{ row.sec_score }} | {{ '%.1f%%'|format(row.asr * 100) }} | {{ '%.1f%%'|format(row.baseline_pass_rate * 100) }} |
-{% endfor %}{% if report.retest.regression_failed %}
+{% for row in report.retest.versions %}  | {{ row.version }} | {{ row.sec_score if row.sec_score is not none else '—' }} | {{ '%.1f%%'|format(row.asr * 100) if row.asr is not none else '—' }} | {{ '%.1f%%'|format(row.baseline_pass_rate * 100) if row.baseline_pass_rate is not none else '—' }} |
+{% endfor %}{% else %}| 版本快照 | prompt hash | 来源 | 工具数 | 登记时间 |
+| --- | --- | --- | --- | --- |
+{% for row in report.retest.versions %}  | {{ row.version }} | {{ row.prompt_hash or '—' }} | {{ row.source or '—' }} | {{ row.tools if row.tools is not none else '—' }} | {{ row.created_at or '—' }} |
+{% endfor %}
+> 版本快照来自 Agent 资产登记记录，暂未携带逐版本 SecScore / ASR / 基线通过率，整改后重新生成报告即可对比。
+{% endif %}{% if report.retest.regression_failed %}
 > ⚠️ 检测到回归：SecScore 跌幅超过 5 分，门禁判定 fail（AC-11）。
 {% endif %}
 ## 九、合规映射

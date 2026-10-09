@@ -150,11 +150,19 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   }
 
   if (!response.ok) {
-    const obj = (payload ?? {}) as Partial<ApiError>;
+    const obj = (typeof payload === 'object' && payload !== null ? payload : {}) as Partial<ApiError> & {
+      detail?: unknown;
+    };
     const code = obj.error ?? `Http${response.status}`;
+    // 未捕获异常（HTTP 500）返回的是纯文本而不是 {error,message}，此时要把原文带给用户，
+    // 否则前端只剩一句「请求失败（HTTP 500）」，没法判断是渲染炸了还是别的原因。
+    const raw = typeof payload === 'string' ? payload.trim() : '';
+    const detail = typeof obj.detail === 'string' ? obj.detail.trim() : '';
+    const reason = raw || detail;
     throw new ApiClientError(
       code,
-      obj.message ?? `请求失败（HTTP ${response.status}）`,
+      obj.message ??
+        (reason ? `请求失败（HTTP ${response.status}）：${reason.slice(0, 200)}` : `请求失败（HTTP ${response.status}）`),
       obj.hint ?? HINTS[code] ?? '',
       response.status
     );
