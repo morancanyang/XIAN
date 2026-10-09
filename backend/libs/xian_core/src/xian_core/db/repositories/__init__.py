@@ -354,10 +354,19 @@ class ReportRepository(Repository[Report]):
     model = Report
 
     async def for_subject(self, subject_type: str, subject_id: uuid.UUID) -> Report | None:
-        stmt = self._base_query().where(
-            Report.subject_type == subject_type, Report.subject_id == subject_id
+        """取某主体当前生效的报告；同主体历史重复行只认版本最高、最新创建的那份。
+
+        早年两个生成端点直接 insert，库里留下了同主体多行。这里必须收敛成确定性的
+        单行查询：否则 scalar_one_or_none 会抛 MultipleResultsFound，重新生成报告
+        时直接 500。
+        """
+        stmt = (
+            self._base_query()
+            .where(Report.subject_type == subject_type, Report.subject_id == subject_id)
+            .order_by(Report.version.desc(), Report.created_at.desc(), Report.id.desc())
+            .limit(1)
         )
-        return (await self.session.execute(stmt)).scalar_one_or_none()
+        return (await self.session.execute(stmt)).scalars().first()
 
 
 class ReportExportRepository(Repository[ReportExport]):

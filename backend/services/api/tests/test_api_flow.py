@@ -215,3 +215,70 @@ def test_campaign_plan_dag_aligns_with_commander(client: TestClient, headers: di
     codes = sorted(node["category_code"] for node in body["dag_nodes"])
     assert codes == ["XM-01", "XM-03"], codes
     assert set(body["budget_split"]) == set(codes)
+
+
+def test_report_regeneration_refreshes_instead_of_duplicating(
+    client: TestClient, headers: dict[str, str]
+) -> None:
+    """同一战役重复生成报告必须是刷新，不能无限追加行。
+
+    之前两个生成端点都直接 insert：点几次"生成报告"列表里就多出几行同一个战役，
+    而且旧的那行带着已经修掉的渲染缺陷（kill chain 阶段错报），用户看到的是过期快照。
+    """
+    agent_id = _create_agent(client, headers)
+    _verify_ownership(client, headers, agent_id)
+    resp = client.post(
+        "/api/v1/campaigns",
+        json={"agent_id": agent_id, "scope": ["XM-01"], "budget": {"token": 5000, "cases": 3, "minutes": 5}},
+        headers=headers,
+    )
+    campaign_id = resp.json()["id"]
+
+    first = client.post(f"/api/v1/reports/campaigns/{campaign_id}", headers=headers)
+    assert first.status_code == 200, first.text
+    second = client.post(f"/api/v1/reports/campaigns/{campaign_id}", headers=headers)
+    assert second.status_code == 200, second.text
+
+    assert first.json()["id"] == second.json()["id"], "重复生成应落在同一行上"
+    assert second.json()["version"] == 2, "重新生成要递增版本号"
+
+    listed = client.get("/api/v1/reports", headers=headers).json()
+    mine = [r for r in listed if r["subject_id"] == campaign_id]
+    assert len(mine) == 1, f"同一战役出现 {len(mine)} 份报告"
+
+    detail = client.get(f"/api/v1/reports/{second.json()['id']}", headers=headers)
+    assert detail.status_code == 200 and detail.json()["chapters"]
+
+
+def test_delete_report_removes_row_and_exports(client: TestClient, headers: dict[str, str]) -> None:
+    """删除报告要连行带导出记录一起清掉，删完再取是 404。
+
+    这是清理存量重复报告（同主体多行）的入口：重新生成只刷新当前生效的那一行，
+    多余的旧行要么在这里显式删掉，要么在下次重新生成时被顺手清掉。
+    """
+    agent_id = _create_agent(client, headers)
+    _verify_ownership(client, headers, agent_id)
+    resp = client.post(
+        "/api/v1/campaigns",
+        json={"agent_id": agent_id, "scope": ["XM-01"], "budget": {"token": 5000, "cases": 3, "minutes": 5}},
+        headers=headers,
+    )
+    campaign_id = resp.json()["id"]
+    report_id = client.post(f"/api/v1/reports/campaigns/{campaign_id}", headers=headers).json()["id"]
+    exported = client.post(
+        f"/api/v1/reports/{report_id}/export",
+        json={"formats": ["json"], "desensitize_level": "standard"},
+        headers=headers,
+    )
+    assert exported.status_code == 200, exported.text
+
+    viewer = dict(headers, **{"X-Role": "viewer"})
+    assert client.delete(f"/api/v1/reports/{report_id}", headers=viewer).status_code == 403
+
+    deleted = client.delete(f"/api/v1/reports/{report_id}", headers=headers)
+    assert deleted.status_code == 200, deleted.text
+    assert deleted.json()["deleted"] is True
+    assert client.get(f"/api/v1/reports/{report_id}", headers=headers).status_code == 404
+    assert client.delete(f"/api/v1/reports/{report_id}", headers=headers).status_code == 404
+    listed = client.get("/api/v1/reports", headers=headers).json()
+    assert all(r["id"] != report_id for r in listed)

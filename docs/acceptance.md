@@ -36,6 +36,11 @@
   默认并发度 4，可用战役 constraints.concurrency 覆盖（夹在 1~16）。
   投放与事件播报并发、落库串行；token 记账跟随投放，预算熔断在层内即可刹住。
   实测 12 条用例：并发 1 耗时 12.1s，并发 4 耗时 3.9s。
+- 报告生成收敛为 upsert：同一 subject 只保留一份报告，重新生成是刷新（version 递增、
+  章节重算、清空过期导出指针），不再是追加行；ReportRepository.for_subject 收敛为
+  "版本最高、最新创建"的确定性单行查询，存量重复行不会再触发 MultipleResultsFound。
+  另提供 DELETE /api/v1/reports/{report_id}（report:export 权限）显式删除报告及其
+  导出记录。存量 25 行已重整为 15 行并全部按修正后的阶段映射重新生成。
 ## 验证入口汇总
 
 ```bash
@@ -49,7 +54,7 @@ python -m pytest examples/demo-agent -q         # AC-02
 | 指标 | 目标 | 实测 |
 | --- | --- | --- |
 | 端到端冒烟耗时 | ≤ 30 min | 27 s |
-| 后端单测 | 全绿 | 230 passed |
+| 后端单测 | 全绿 | 235 passed |
 | 示例 Agent 自检 | 全绿 | 15 passed |
 | 前端单测 | 全绿 | 27 passed |
 | API 路由数 | PRD 模块全覆盖 | 69 路由 / 26 router |

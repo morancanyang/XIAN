@@ -127,6 +127,59 @@ async def _load_subject(
     return agent, records, profile, versions
 
 
+async def _delete_report_row(session: SessionDep, tenant_id: uuid.UUID, row: Report) -> None:
+    """删报告时连带清掉导出记录：SQLite 不强制外键，留着就是孤儿行。"""
+    export_repo = ReportExportRepository(session, tenant_id)
+    for artifact in await export_repo.list_by(report_id=row.id):
+        await export_repo.delete(artifact)
+    await ReportRepository(session, tenant_id).delete(row)
+
+
+async def _upsert_report(
+    session: SessionDep,
+    tenant_id: uuid.UUID,
+    *,
+    subject_type: str,
+    subject_id: uuid.UUID,
+    payload: dict[str, Any],
+) -> Report:
+    """同一 subject 只保留一份报告：重新生成是刷新，不是追加。
+
+    之前两个生成端点都直接 insert，点几次"生成报告"就多出几行，
+    报告列表里同一个战役重复出现，旧的那份还带着已经修掉的渲染缺陷。
+    ReportRepository.for_subject 本来就在，只是从来没被调用过。
+    """
+    repo = ReportRepository(session, tenant_id)
+    row = await repo.for_subject(subject_type, subject_id)
+    if row is None:
+        return await repo.add(
+            Report(
+                tenant_id=tenant_id,
+                subject_type=subject_type,
+                subject_id=subject_id,
+                version=1,
+                sec_score=int(payload.get("sec_score", 0) or 0),
+                grade=str(payload.get("grade", "D") or "D"),
+                chapters=dict(payload),
+                object_keys={"html": "", "pdf": "", "json": ""},
+                share={"expired_at": None, "password": False},
+                coverage_pct=float(payload.get("coverage_pct", 0.0) or 0.0),
+            )
+        )
+    # 存量重复行一并清掉：一个主体只保留当前生效的这一份
+    for stale in await repo.list_by(subject_type=subject_type, subject_id=subject_id):
+        if stale.id != row.id:
+            await _delete_report_row(session, tenant_id, stale)
+    row.version = int(row.version or 1) + 1
+    row.sec_score = int(payload.get("sec_score", 0) or 0)
+    row.grade = str(payload.get("grade", "D") or "D")
+    row.chapters = dict(payload)
+    row.coverage_pct = float(payload.get("coverage_pct", 0.0) or 0.0)
+    # 章节内容变了，旧的 html/pdf/json 导出件就是过期快照，指向清掉
+    row.object_keys = {"html": "", "pdf": "", "json": ""}
+    return row
+
+
 @router.post("/campaigns/{campaign_id}", response_model=ReportOut)
 async def generate_campaign_report(
     campaign_id: uuid.UUID, session: SessionDep, principal: PrincipalDep
@@ -143,19 +196,12 @@ async def generate_campaign_report(
         records=[_record_view(r) for r in records],
         versions=versions,
     )
-    row = await ReportRepository(session, principal.tenant_id).add(
-        Report(
-            tenant_id=principal.tenant_id,
-            subject_type="campaign",
-            subject_id=campaign_id,
-            version=1,
-            sec_score=int(payload.get("sec_score", 0) or 0),
-            grade=str(payload.get("grade", "D") or "D"),
-            chapters=dict(payload),
-            object_keys={"html": "", "pdf": "", "json": ""},
-            share={"expired_at": None, "password": False},
-            coverage_pct=float(payload.get("coverage_pct", 0.0) or 0.0),
-        )
+    row = await _upsert_report(
+        session,
+        principal.tenant_id,
+        subject_type="campaign",
+        subject_id=campaign_id,
+        payload=payload,
     )
     await session.commit()
     await session.refresh(row)
@@ -176,19 +222,12 @@ async def generate_agent_report(
         records=[_record_view(r) for r in records],
         versions=versions,
     )
-    row = await ReportRepository(session, principal.tenant_id).add(
-        Report(
-            tenant_id=principal.tenant_id,
-            subject_type="agent",
-            subject_id=agent_id,
-            version=1,
-            sec_score=int(payload.get("sec_score", 0) or 0),
-            grade=str(payload.get("grade", "D") or "D"),
-            chapters=dict(payload),
-            object_keys={"html": "", "pdf": "", "json": ""},
-            share={"expired_at": None, "password": False},
-            coverage_pct=float(payload.get("coverage_pct", 0.0) or 0.0),
-        )
+    row = await _upsert_report(
+        session,
+        principal.tenant_id,
+        subject_type="agent",
+        subject_id=agent_id,
+        payload=payload,
     )
     await session.commit()
     await session.refresh(row)
@@ -278,3 +317,18 @@ async def share_report(report_id: uuid.UUID, body: dict, principal: PrincipalDep
         watermark=str(body.get("watermark", "XIAN 内部资料")),
     )
     return {"report_id": str(report_id), "share": link.to_dict()}
+
+
+@router.delete("/{report_id}")
+async def delete_report(
+    report_id: uuid.UUID,
+    session: SessionDep,
+    principal: Annotated[Principal, Depends(require("report:export"))],
+) -> dict[str, Any]:
+    """删除报告及其导出件：清理历史重复行与过期快照（PRD 3.8.4）。"""
+    row = await ReportRepository(session, principal.tenant_id).get_optional(report_id)
+    if row is None:
+        raise HTTPException(404, "报告不存在")
+    await _delete_report_row(session, principal.tenant_id, row)
+    await session.commit()
+    return {"id": str(report_id), "deleted": True}
