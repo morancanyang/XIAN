@@ -79,7 +79,24 @@ def build_instance_payload(
     }
 
 
+def scenario_ref(scenario_id: Any) -> tuple[str, str]:
+    """实例上的 scenario_id 反查回 (场景 code, 场景名)。
+
+    实例表存的是 ``uuid5(NAMESPACE_URL, "scenario:<code>")``，而场景市场对外的 id 就是
+    code 本身。不反查的话，调用方拿到 UUID 也没法告诉用户这到底是什么场景。
+    """
+    try:
+        target = uuid.UUID(str(scenario_id))
+    except (ValueError, AttributeError, TypeError):
+        return "", ""
+    for template in load_templates():
+        if uuid.uuid5(uuid.NAMESPACE_URL, f"scenario:{template.code}") == target:
+            return template.code, template.name
+    return "", ""
+
+
 def instance_to_out(row: Any) -> ScenarioInstanceOut:
+    code, name = scenario_ref(row.scenario_id)
     return ScenarioInstanceOut(
         id=row.id,
         scenario_id=row.scenario_id,
@@ -88,6 +105,8 @@ def instance_to_out(row: Any) -> ScenarioInstanceOut:
         status=row.status,
         created_at=row.created_at,
         expired_at=row.expired_at,
+        scenario_code=code,
+        scenario_name=name,
     )
 
 
@@ -128,6 +147,10 @@ def scenario_summary(code: str) -> dict[str, Any]:
     template = resolve_template(code)
     return {
         "id": template.code,
+        # 前端 Scenario 契约里有 code，搜索过滤与详情链接都依赖它。此前只回 id，
+        # 前端拿到 undefined，一进搜索框就 s.code.toLowerCase() 崩，详情链接也全是
+        # /scenarios/undefined。id 与 code 同值，但契约字段要补齐。
+        "code": template.code,
         "name": template.name,
         "category": template.dsl.category,
         "difficulty": str(template.dsl.difficulty),

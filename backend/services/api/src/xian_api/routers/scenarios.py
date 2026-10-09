@@ -17,6 +17,7 @@ from xian_core.scenarios import (
     build_instance_payload,
     canaries_for_payload,
     filter_templates,
+    instance_to_out,
     plant_canaries,
     resolve_template,
     scenario_summary,
@@ -43,7 +44,8 @@ async def market(
 async def list_instances(session: SessionDep, principal: PrincipalDep) -> list[ScenarioInstanceOut]:
     repo = ScenarioInstanceRepository(session, principal.tenant_id)
     rows = await repo.list_by(status="ready")
-    return [ScenarioInstanceOut.model_validate(r) for r in rows]
+    # 走 instance_to_out：顺带把场景 code/name 反查出来，前端才不用摆裸 UUID
+    return [instance_to_out(r) for r in rows]
 
 
 @router.get("/{code}")
@@ -100,7 +102,7 @@ async def instantiate(
     row.status = "ready"
     await session.commit()
     await session.refresh(row)
-    return ScenarioInstanceOut.model_validate(row)
+    return instance_to_out(row)
 
 
 @router.get("/instances/{instance_id}/canaries")

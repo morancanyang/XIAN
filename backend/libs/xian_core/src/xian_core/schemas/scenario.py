@@ -90,6 +90,11 @@ class ScenarioInstanceOut(StrictModel):
     status: str
     created_at: datetime
     expired_at: datetime | None = None
+    # 实例表里的 scenario_id 是 uuid5(NAMESPACE_URL, "scenario:<code>")，而场景市场对外的
+    # id 就是 code 本身（"S1"）。两套 id 空间对不上，前端只能把裸 UUID 摆给用户，
+    # 所以这里必须把可读的场景标识一起带出去。
+    scenario_code: str = ""
+    scenario_name: str = ""
 
 
 class CanaryHitOut(StrictModel):

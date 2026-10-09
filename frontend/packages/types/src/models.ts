@@ -298,6 +298,10 @@ export interface ScenarioInstance {
   status: string;
   created_at: string;
   expired_at: string | null;
+  /** 场景 code（如 S1）。scenario_id 是 uuid5，和场景列表的 id 不是一套空间。 */
+  scenario_code: string;
+  /** 场景中文名，列表里直接展示这个，别再摆裸 UUID。 */
+  scenario_name: string;
 }
 
 export interface InstanceCreate {

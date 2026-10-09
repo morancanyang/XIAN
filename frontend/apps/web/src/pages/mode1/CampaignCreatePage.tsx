@@ -110,7 +110,7 @@ export default function CampaignCreatePage() {
                     <SelectItem value="">不关联</SelectItem>
                     {(instances.data ?? []).map((i) => (
                       <SelectItem key={i.id} value={i.id}>
-                        {i.id.slice(0, 12)}（{i.status}）
+                        {i.scenario_name || i.scenario_code || i.id.slice(0, 8)}（{i.status}）
                       </SelectItem>
                     ))}
                   </SelectContent>

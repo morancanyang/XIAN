@@ -136,11 +136,33 @@ export default function ScenarioMarketPage() {
       {instances.data && instances.data.length > 0 ? (
         <Card className="mt-4">
           <CardContent className="space-y-2">
-            <p className="text-xs font-semibold text-content">最近实例</p>
+            <div className="flex flex-wrap items-baseline gap-x-3">
+              <p className="text-xs font-semibold text-content">最近实例</p>
+              <p className="text-[11px] text-content-faint">
+                实例是已经拉起的靶场环境（假数据 + 蜜标 + 监控探针）。点场景名直接用它开打，或进场景详情查看。
+              </p>
+            </div>
             {instances.data.slice(0, 5).map((i) => (
-              <div key={i.id} className="flex items-center justify-between rounded-control border border-border bg-elevated px-3 py-2 text-xs">
-                <span className="font-mono text-content-muted">{i.id}</span>
-                <Badge tone={i.status === 'ready' ? 'success' : 'coach'}>{i.status}</Badge>
+              <div
+                key={i.id}
+                className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-control border border-border bg-elevated px-3 py-2 text-xs"
+              >
+                <Link
+                  to={`/console?instance=${i.id}`}
+                  className="font-medium text-content transition-colors hover:text-coach"
+                >
+                  {i.scenario_name || i.scenario_code || '未标记场景'}
+                </Link>
+                <span className="font-mono text-content-faint">{i.scenario_code || i.id.slice(0, 8)}</span>
+                <span className="text-content-faint">{new Date(i.created_at).toLocaleString('zh-CN', { hour12: false })}</span>
+                <span className="ml-auto flex items-center gap-3">
+                  <Badge tone={i.status === 'ready' ? 'success' : 'coach'}>{i.status}</Badge>
+                  {i.scenario_code ? (
+                    <Link to={`/scenarios/${i.scenario_code}`} className="text-content-muted transition-colors hover:text-content">
+                      场景详情
+                    </Link>
+                  ) : null}
+                </span>
               </div>
             ))}
           </CardContent>

@@ -67,3 +67,31 @@ def test_list_instances_not_swallowed_by_code_route(client: TestClient, headers:
     resp = client.get("/api/v1/scenarios/instances", headers=headers)
     assert resp.status_code == 200, resp.text
     assert isinstance(resp.json(), list)
+
+def test_market_summary_exposes_code_field(client: TestClient, headers: dict[str, str]) -> None:
+    """Regression: scenario_summary must return code, otherwise the frontend
+    search filter s.code.toLowerCase() blows up as soon as the user types."""
+    resp = client.get("/api/v1/scenarios", headers=headers)
+    assert resp.status_code == 200
+    for item in resp.json():
+        assert item["code"] == item["id"]
+
+
+def test_instance_payload_carries_scenario_ref(client: TestClient, headers: dict[str, str]) -> None:
+    """Regression: instances must carry a readable scenario ref, otherwise the
+    frontend can only render the bare UUID and has nothing to link to."""
+    created = client.post(
+        "/api/v1/scenarios/instances",
+        json={"scenario_id": "S1", "data_scale": 10},
+        headers=headers,
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["scenario_code"] == "S1"
+    assert created.json()["scenario_name"]
+
+    listed = client.get("/api/v1/scenarios/instances", headers=headers)
+    assert listed.status_code == 200, listed.text
+    rows = [r for r in listed.json() if r["id"] == created.json()["id"]]
+    assert rows, "freshly created instance should show up in the list"
+    assert rows[0]["scenario_code"] == "S1"
+    assert rows[0]["scenario_name"]

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import {
   Badge,
@@ -42,6 +42,7 @@ import { errorMessage } from '../../lib/api/errors';
 /** 模式二 AttackConsole（技术方案 8.4）：武器库 / 对话 / 教官面板 + 底部观测面板。 */
 export default function AttackConsolePage() {
   const { sessionId } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const activeAgentId = useSessionStore((s) => s.activeAgentId);
   const setActiveSession = useSessionStore((s) => s.setActiveSession);
@@ -57,7 +58,8 @@ export default function AttackConsolePage() {
   const renderCase = useMatrixCaseRender();
 
   const [agentId, setAgentId] = useState(activeAgentId ?? '');
-  const [instanceId, setInstanceId] = useState('');
+  // 支持从场景市场带实例跳进来：/console?instance=<id>，否则那一栏实例列表点了也没反应
+  const [instanceId, setInstanceId] = useState(searchParams.get('instance') ?? '');
   const [draft, setDraft] = useState('');
   const [selectedCaseId, setSelectedCaseId] = useState('');
   const [pendingCase, setPendingCase] = useState<{ id: string; title: string } | null>(null);
@@ -230,7 +232,7 @@ export default function AttackConsolePage() {
                       <SelectItem value="">不关联</SelectItem>
                       {(instances.data ?? []).map((i) => (
                         <SelectItem key={i.id} value={i.id}>
-                          {i.id.slice(0, 12)}（{i.status}）
+                          {i.scenario_name || i.scenario_code || i.id.slice(0, 8)}（{i.status}）
                         </SelectItem>
                       ))}
                     </SelectContent>
