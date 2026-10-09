@@ -73,9 +73,15 @@ class SandboxChatClient:
         started = time.perf_counter()
         result = self._runtime.execute_tool(self._instance_id, self._tool, {"message": message})
         latency_ms = int((time.perf_counter() - started) * 1000)
+        # 观测事件由运行时给出（蜜标命中 + 无护栏目标的工具调用），这里只做搬运。
+        # 原先写死成「有 canary_hit 才给一条事件」，靶场顺从载荷产生的 tool_call
+        # 全被丢在半路，裁判只能看到一句回显。
+        events = list(result.get("events") or [])
+        if result.get("canary_hit") and not any(e.get("type") == "canary_hit" for e in events):
+            events.append({"type": "canary_hit", "via": "egress"})
         return {
             "output": str(result.get("result", "")),
-            "events": [] if not result.get("canary_hit") else [{"type": "canary_hit", "via": "egress"}],
+            "events": events,
             "latency_ms": latency_ms,
             "tokens": 0,
             "session_id": session_id,

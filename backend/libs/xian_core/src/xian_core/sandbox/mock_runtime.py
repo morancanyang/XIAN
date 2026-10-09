@@ -17,6 +17,7 @@ from typing import Any
 from ..schemas.scenario import ScenarioDsl
 from .canary import CanaryHit, scan_text
 from .network import EgressProxy
+from .unguarded import plan_tool_calls
 
 
 # 命中这些词就视为攻击者在诱导机密外泄（技术方案 11.4：mock 环境也要能闭环演示考点）。
@@ -98,9 +99,13 @@ class MockRuntime:
     def chat(self, instance_id: str, message: str) -> dict[str, Any]:
         """模拟靶场 Agent 应答（技术方案 11.4 无 Docker 降级链路）。
 
-        这一句就是整个沙箱里的"目标 Agent"。行为刻意做成可诱导：问到提示词 / 密钥 /
-        订单号，或来文里直接带了蜜标值，就把假凭证回吐出来，浏览器侧才看得见
-        "蜜标外带命中"，否则无 Docker 环境下这条链路永远是静默的。
+        这一句就是整个沙箱里的"目标 Agent"。行为刻意做成可诱导：
+
+        - 问到提示词 / 密钥 / 订单号，或来文里直接带了蜜标值，就把假凭证回吐出来，
+          浏览器侧才看得见"蜜标外带命中"，否则无 Docker 环境下这条链路永远是静默的；
+        - 载荷里显式点名了某个工具、或要求写记忆/知识库、或要求循环轰炸，
+          就按 :mod:`unguarded` 产出对应的 tool_call 观测事件——越权工具调用、
+          记忆投毒、资源滥用这几类否则永远只有一句回显，裁判只能判"未发生"。
         """
         instance = self.instances[instance_id]
         planted = [c["value"] for c in instance.canaries if c.get("status") == "planted" and c.get("value")]
@@ -119,6 +124,7 @@ class MockRuntime:
             "result": result_text,
             "canary_hit": bool(hits),
             "hits": [h.to_dict() for h in hits],
+            "events": plan_tool_calls(text),
         }
 
     def execute_tool(self, instance_id: str, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
