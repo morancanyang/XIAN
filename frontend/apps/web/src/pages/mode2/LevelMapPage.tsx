@@ -94,16 +94,33 @@ export default function LevelMapPage() {
         </Card>
 
         <Card className="relative overflow-hidden">
+          {/* 通关庆祝氛围层。两个坑一次修掉：
+              1) Orb 底层是 fixed inset-0 的全屏层，卡片 overflow-hidden 根本拦不住，
+                 光环直接铺满整个视口，所以看着特别突兀；
+              2) 这层原本是 z-0，会画在正文之上，等于隔着一层紫光看字。
+              现在走 inline 收进卡片、透明度压到 0.22、边缘径向遮罩淡出、缓慢演化，
+                 正文各自加 relative 抬到装饰之上。 */}
           {selectedProgress?.status === 'passed' ? (
-            <div className="pointer-events-none absolute inset-0 z-0 opacity-70">
-              <OrbBackdrop secScore={selectedProgress.score ?? 100} grade={selectedProgress.score != null && selectedProgress.score >= 90 ? 'S' : (selectedProgress.score ?? 0) >= 75 ? 'A' : 'B'} />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 z-0 overflow-hidden [filter:blur(6px)] [mask-image:radial-gradient(125%_125%_at_50%_50%,#000_26%,transparent_74%)]"
+            >
+              <OrbBackdrop
+                secScore={selectedProgress.score ?? 100}
+                grade={selectedProgress.score != null && selectedProgress.score >= 90 ? 'S' : (selectedProgress.score ?? 0) >= 75 ? 'A' : 'B'}
+                inline
+                opacity={0.22}
+                timeScale={0.35}
+                hoverIntensity={0.04}
+                rotateOnHover={false}
+              />
             </div>
           ) : null}
-          <CardHeader>
+          <CardHeader className="relative">
             <CardTitle>{selectedLevel ? selectedLevel.name : '选择左侧关卡开始'}</CardTitle>
             {selectedLevel ? <Badge tone="blue">{selectedLevel.scenario_code}</Badge> : null}
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="relative space-y-4">
             {selectedLevel ? (
               <>
                 <p className="text-sm text-content-muted xian-cjk">{selectedLevel.goal}</p>

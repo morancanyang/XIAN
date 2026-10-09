@@ -9,11 +9,21 @@ export interface BackgroundLayerProps {
   className?: string;
   /** 主题：浅色主题一律退化为纯色，不初始化渲染循环 */
   theme?: 'dark' | 'light';
+  /**
+   * 内联模式：相对最近的定位祖先铺满，而不是钉在整个视口。
+   *
+   * 默认 false 保持既有行为 —— Aurora / DarkVeil / Particles 等整页氛围背景都依赖
+   * fixed + --z-backdrop。要把背景收进某张卡片内部时必须显式打开：fixed 会绕过
+   * 卡片的 overflow-hidden 直接铺到全屏，父级给的 z-index 也管不住它，结果就是
+   * 一张卡里冒出个占满屏幕的大光环（关卡结算卡踩过这个坑）。
+   */
+  inline?: boolean;
 }
 
 /**
  * 背景层统一约束（技术方案 8.7.2）：
- * - 固定最底层 `position: fixed` + `z-index: var(--z-backdrop)`（位于 --z-* 体系之下）
+ * - 默认固定最底层 `position: fixed` + `z-index: var(--z-backdrop)`（位于 --z-* 体系之下）
+ * - `inline` 时改为相对定位祖先铺满，供卡片内嵌装饰使用（见 BackgroundLayerProps.inline）
  * - `aria-hidden="true"` + `pointer-events: none`，绝不拦截控制台/表格/拖拽
  * - 命中全局「减弱动效」或系统 `prefers-reduced-motion` 时立即降级为静态首帧/纯渐变
  * - 页面不可见（document.visibilityState）时暂停渲染循环
@@ -22,7 +32,8 @@ export function BackgroundLayer({
   children,
   fallbackClassName = 'bg-gradient-to-b from-base to-sunken',
   className,
-  theme = 'dark'
+  theme = 'dark',
+  inline = false
 }: BackgroundLayerProps) {
   const reduced = useReducedMotion();
   const degraded = reduced || theme === 'light';
@@ -30,11 +41,20 @@ export function BackgroundLayer({
   return (
     <div
       aria-hidden="true"
-      className={cn('pointer-events-none fixed inset-0 overflow-hidden', className)}
-      style={{ zIndex: 'var(--z-backdrop)' }}
+      className={cn(
+        'pointer-events-none overflow-hidden',
+        inline ? 'absolute inset-0' : 'fixed inset-0',
+        className
+      )}
+      style={inline ? undefined : { zIndex: 'var(--z-backdrop)' }}
       data-degraded={degraded ? 'true' : 'false'}
     >
-      {degraded ? <div className={cn('h-full w-full', fallbackClassName)} /> : children}
+      {/* 内联降级不能铺 opaque 渐变：那是给整页背景用的，盖在卡片上会糊成一片。 */}
+      {degraded ? (
+        <div className={cn('h-full w-full', inline ? 'bg-transparent' : fallbackClassName)} />
+      ) : (
+        children
+      )}
     </div>
   );
 }

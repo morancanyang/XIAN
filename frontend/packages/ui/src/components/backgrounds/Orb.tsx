@@ -15,6 +15,11 @@ export interface OrbProps {
   backgroundColor?: string;
   opacity?: number;
   className?: string;
+  /**
+   * 内联模式：把画布收进最近的定位祖先，而不是钉在整个视口。
+   * 详见 BackgroundLayerProps.inline —— 卡片内嵌装饰必须打开，否则 fixed 会铺满全屏。
+   */
+  inline?: boolean;
 }
 
 function hueFromGrade(grade: string | undefined, fallbackHue = 217): number {
@@ -42,7 +47,8 @@ export function Orb({
   forceHoverState = false,
   backgroundColor,
   opacity = 0.85,
-  className = ''
+  className = '',
+  inline = false
 }: OrbProps) {
   const tokens = useTokens();
   const visible = useVisibility();
@@ -339,7 +345,7 @@ export function Orb({
   }, [resolvedHue, resolvedIntensity, rotateOnHover, forceHoverState, resolvedBg]);
 
   return (
-    <BackgroundLayer className={className}>
+    <BackgroundLayer className={className} inline={inline}>
       <div ref={ctnDom} className="orb-container h-full w-full" style={{ opacity }} />
     </BackgroundLayer>
   );
