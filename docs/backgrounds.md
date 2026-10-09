@@ -48,11 +48,12 @@
 `Hyperspeed`、`Balatro`、`LiquidChrome`、`PrismaticBurst`、`MoltenMetal`、`Ferrofluid`、`Iridescence`。
 上游同名但方案未选用的其余背景（`Waves`、`Silk`、`Beams`、`DotGrid` 等）未接入。
 
-## 3. 统一封装层约束
+## 4. 统一封装层约束
 
 所有组件经 `BackgroundLayer` 统一约束（`packages/ui/src/components/backgrounds/BackgroundLayer.tsx`）：
 
-- 固定最底层：`position: fixed` + `z-index: var(--z-backdrop)`（位于 8.2 `--z-*` 体系之下）；
+- 默认固定最底层：`position: fixed` + `z-index: var(--z-backdrop)`（位于 8.2 `--z-*` 体系之下）；
+- `inline` 模式：传 `inline` 后改为 `absolute inset-0`，相对最近的定位祖先铺满且不再设 `z-index`。**要把背景收进某张卡片内部时必须用它** —— `fixed` 会绕过卡片的 `overflow-hidden` 直接铺满视口，父级的 `z-index` 也管不住（关卡通关光环曾因此变成一个横穿全页的大光圈）。内联时的降级分支渲染透明而非整页渐变，避免把卡片糊成一片；
 - 一律带 `aria-hidden="true"` 与 `pointer-events: none`，绝不拦截控制台、表格与三栏拖拽；
 - 颜色只从 8.2 Design Tokens 取值（`--color-red-team` #EF4444 / `--color-blue-team` #3B82F6 /
   `--color-coach` #F59E0B / `--bg-base` #0B0F17 / `--border` #1F2937），
@@ -62,17 +63,17 @@
 - 只在深色主题启用；浅色主题退化为 `--bg-base` 纯色；
 - 移动端由调用方（features 薄封装）降级为静态渐变，不初始化 WebGL。
 
-## 4. 性能预算
+## 5. 性能预算
 
 | 指标 | 目标 | 现状 |
 | --- | --- | --- |
 | 首屏 JS（gzip） | ≤ 300KB（8.1） | 背景按路由 `React.lazy` 加载，未进首屏包 |
-| 同屏 WebGL context | ≤ 2（8.7.2） | 同屏最多 2 个固定背景（全局 Threads + 单页装饰层）；rAF 随页面隐藏即停 |
+| 同屏 WebGL context | ≤ 2（8.7.2） | 同屏最多 2 个固定背景（全局 Threads + 单页装饰层）；rAF 随页面隐藏即停。卡片内嵌装饰走 `inline`，不额外占 context |
 | 模式二首响 | < 2s P95（11.1） | `FaultyTerminal` 字符强度最低档 |
 | 驾驶舱事件延迟 | < 1s P95（11.1） | 背景 rAF 与 WS 解耦，页面隐藏即暂停 |
 | shader 渲染上限 | Threads 内部渲染分辨率 ≤ 1920px 长边 | 上游实现自带 MAX_RENDER_DIM 限制 |
 
-## 5. 验收自查（对齐 8.7.4）
+## 6. 验收自查（对齐 8.7.4）
 
 - [x] 减弱动效开关与系统 `prefers-reduced-motion` 下所有背景即时降级，无残留动画
       （`useReducedMotion` + `BackgroundLayer` 双端覆盖，未命中时 children 不渲染）
@@ -81,7 +82,7 @@
 - [x] 报告阅读页 `DarkVeil` 开启后正文对比度满足可读性要求（振幅 ≤ 0.15 + 不透明度上限）
 - [x] 本文档已登记全部选用组件的来源、许可、依赖与改动点
 
-## 6. 替换指引
+## 7. 替换指引
 
 如需整体替换背景方案，只需改动 `packages/ui/src/components/backgrounds/<Name>.tsx`；
 业务侧 `features/*/components/<Name>Backdrop.tsx` 只传 `variant` 与 `intensity` 两个业务参数，

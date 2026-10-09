@@ -11,7 +11,7 @@
 
 | 面 | 选型 |
 | --- | --- |
-| 前端 | React 18 + TypeScript + Vite + pnpm workspace + Turbo、Tailwind、Radix UI、ECharts、XTerm、@xyflow/react、react-virtuoso、Dexie、Vitest、Playwright、Storybook |
+| 前端 | React 19 + TypeScript 5.6 + Vite 5 + pnpm workspace、Tailwind 3、Radix UI、ECharts、XTerm、@xyflow/react、react-virtuoso、Dexie、Vitest、Playwright、Storybook |
 | 后端 | Python 3.12+、FastAPI、SQLAlchemy 2.0（async）、Alembic、Celery、Pydantic v2、Typer |
 | 数据 | PostgreSQL 16、Redis 7、ClickHouse 24、Qdrant 1.12、MinIO |
 | AI | LiteLLM 四角色路由（redteam/target/judge/embedding）、三级裁判、用例向量检索 |
@@ -53,6 +53,8 @@ cp .env.example .env                   # 按需修改
 
 ```bash
 python scripts/xian.py smoke      # 一键自检：单测 + 种子 + CLI + API 冒烟 + 前端 + CI 门禁
+python scripts/xian.py test       # 后端 pytest 全量
+python scripts/xian.py llm        # 探测大模型接入：端点连通性 + 红队角色试跑
 python scripts/xian.py api        # 后端   http://127.0.0.1:8000  （/docs 交互式文档）
 python scripts/xian.py web        # 前端   http://127.0.0.1:5173
 python scripts/xian.py seed       # 导入 14 类用例 / 场景 / 矩阵 / 关卡 / Playbook
@@ -65,6 +67,12 @@ python scripts/xian.py scan       # CI 回归门禁（AC-11）
 
 完整子命令：`python scripts/xian.py`（无参打印帮助）。
 Windows / Linux / macOS 通用，无需 bash。
+
+> 前端 dev server 默认端口是 `5173`（`frontend/apps/web/vite.config.ts`）。该端口被占用时
+> Vite 会自动顺延，本机常用 `pnpm --filter @xian/web dev --port 5174 --strictPort` 固定到
+> `5174`；两个端口都已写进 `scripts/serve_api.py` 的 CORS 白名单，WS 握手不会被拦。
+> 注意 Vite 只绑 IPv6 `::1`，`http://localhost:5174/` 通、`http://127.0.0.1:5174/` 连不上。
+> 所有 `pnpm` 命令都要在 `frontend/` 目录下执行（仓库根没有 package.json）。
 
 ## 服务器部署
 
@@ -86,14 +94,14 @@ helm upgrade --install xian deploy/helm -n xian --create-namespace
 ```
 wangan/
 ├── backend/                 # 后端（src 布局 workspace）
-│   ├── libs/xian_core/      # 核心层：22 个业务包（红军引擎 / 裁判 / 评分 / 报告 / 关卡 / 沙箱…）
-│   ├── services/api/        # FastAPI 控制平面（26 router / 63 路由 / 2 WS 频道）
+│   ├── libs/xian_core/      # 核心层：21 个业务包（红军引擎 / 裁判 / 评分 / 报告 / 关卡 / 沙箱…）
+│   ├── services/api/        # FastAPI 控制平面（12 router / 81 路由 / 2 WS 频道）
 │   ├── services/worker/     # Celery 运行时（campaign / retest / report_render / scan / notify）
 │   └── services/cli/        # Typer CLI（seed / version / scan）
 ├── frontend/
 │   ├── packages/types/      # OpenAPI 派生契约（enums / events / models / api）
 │   ├── packages/ui/         # 组件库（primitives / feedback / motion / data / viz / backgrounds）
-│   └── apps/web/            # 应用层（15 条路由级页面）
+│   └── apps/web/            # 应用层（16 个页面 / 18 条路由）
 ├── deploy/                  # Compose / nginx / Helm / 可观测 / 沙箱与出口代理
 ├── examples/demo-agent/     # 最小被测 Agent（HTTP / SDK / 容器三种接入示例）
 ├── scripts/                 # xian.py 跨平台总入口 + 种子与冒烟脚本
@@ -108,7 +116,7 @@ wangan/
 | [`docs/project-overview.md`](docs/project-overview.md) | 项目简介与技术亮点 |
 | [`docs/architecture.md`](docs/architecture.md) | 系统架构说明 |
 | [`sql/README.md`](sql/README.md) | 数据库脚本说明（PG / ClickHouse / Qdrant 建表） |
-| [`docs/api.md`](docs/api.md) | API 手册（63 路由 / 56 schema） |
+| [`docs/api.md`](docs/api.md) | API 手册（81 路由 / 86 schema） |
 | [`docs/challenges.md`](docs/challenges.md) | 核心难点与解决方案 |
 | [`docs/deployment.md`](docs/deployment.md) | 部署与运行手册 |
 | [`docs/operations.md`](docs/operations.md) | 运维手册 |
@@ -132,10 +140,10 @@ python scripts/xian.py web                          # 起前端
 
 | 项 | 结果 |
 | --- | --- |
-| 后端单元测试 | 118 passed |
-| 示例 Agent 自检 | 13 passed |
-| 前端单元测试 | 14 passed |
-| 前端 typecheck / build | 通过 |
+| 后端单元测试 | 291 passed |
+| 示例 Agent 自检 | 15 passed |
+| 前端单元测试 | 35 passed |
+| 前端 typecheck / lint / build | 通过 |
 | 端到端冒烟 | 27s（AC-01 预算 30 min） |
 | 验收标准 | AC-01 ~ AC-11 全部落地 |
 

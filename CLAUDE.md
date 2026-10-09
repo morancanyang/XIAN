@@ -29,13 +29,13 @@ python scripts/xian.py <cmd>     # no args prints help
 
 ```bash
 python -m pytest backend -q                        # whole suite
-python -m pytest examples/demo-agent -q            # demo target self-check (13)
+python -m pytest examples/demo-agent -q            # demo target self-check (15)
 
 python -m pytest backend/services/api/tests/test_api_flow.py            # single file
 python -m pytest backend/services/api/tests/test_api_flow.py::test_full_mode_one_flow
 python -m pytest backend/libs/xian_core/tests/test_judge.py -k canary
 ```
-Run pytest **from the repo root** so root `testpaths=["backend","examples"]` and `backend/conftest.py` (which injects `sys.path`) apply. From `backend/` instead, `backend/pyproject.toml` sets `testpaths=["libs","services"]` — a different collection scope. `asyncio_mode=auto`, so async tests need no decorator. 11 test files, 95 test functions → **119 passed** verified locally (parametrized cases expand the count; `README.md` claims 118, off by one).
+Run pytest **from the repo root** so root `testpaths=["backend","examples"]` and `backend/conftest.py` (which injects `sys.path`) apply. From `backend/` instead, `backend/pyproject.toml` sets `testpaths=["libs","services"]` — a different collection scope. `asyncio_mode=auto`, so async tests need no decorator. Parametrized cases expand the function count, so the suite reports **291 passed** for `backend` and **15 passed** for `examples` (306 total).
 
 Note the suite is entirely offline: no Postgres/Redis/ClickHouse/Qdrant and no live LLM. Assertions target *protocol and state machine*, not model quality. `--with-infra` / `testcontainers` are mentioned in a conftest docstring but never wired up.
 
@@ -57,7 +57,7 @@ pnpm codegen             # bash packages/types/scripts/generate.sh
 ```
 
 **Commands that exist but do not work — don't suggest them:**
-- `pnpm lint` (root or `--filter @xian/web`) — ESLint 9 needs a flat config; none exists anywhere under `frontend/`. The `packages/config/eslint/*.cjs` files are unused legacy eslintrc style. Verified failure.
+- `pnpm lint` — **works**: `frontend/eslint.config.mjs` is a real ESLint 9 flat config and `eslint . --max-warnings 0` passes clean. (`packages/config/eslint/*.cjs` are unused legacy eslintrc-style leftovers — do not edit those.)
 - `pnpm smoke` in `frontend/` — runs `bash scripts/smoke.sh`, but `frontend/scripts/` doesn't exist (the real one is at repo-root `scripts/smoke.sh`).
 - `pnpm --filter @xian/web storybook` — `apps/web/.storybook/` doesn't exist (Storybook lives in `packages/ui`).
 - `turbo run …` — `turbo.json` defines the tasks but `turbo` is not installed and not in the lockfile. Use `pnpm --filter`.
@@ -85,7 +85,7 @@ HTTP/WS ─► xian_api (FastAPI) ─► xian_core ─► PG / Redis / ClickHous
                 └── litellm (LLM gateway)
 ```
 
-- **`xian_core`** (`backend/libs/xian_core/src/xian_core`, 22 packages) — all business rules. **Must not import FastAPI or Celery.**
+- **`xian_core`** (`backend/libs/xian_core/src/xian_core`, 21 packages) — all business rules. **Must not import FastAPI or Celery.**
 - **`xian_api`** — protocol adaptation, auth, rate limit, audit, task dispatch only. No business logic.
 - **`xian_worker`** — Celery execution. **`xian_cli`** — Typer façade. Neither implements business rules.
 
@@ -96,10 +96,10 @@ HTTP/WS ─► xian_api (FastAPI) ─► xian_core ─► PG / Redis / ClickHous
 1. **Recon** — `redteam/recon.py:recon()` fires five harmless probe sets (tool enumeration, refusal boundary, prompt residue, fingerprint, language) → `ReconResult` with guessed tool scope and a `refusal_boundary` of hard/soft/none.
 2. **Plan** — `redteam/commander.py:build_plan()` picks strategies from `redteam/strategies/library.yaml`, builds a `StrategyRun` DAG over `STAGE_ORDER = [recon, initial_exec, payload_delivery, privilege_escalation, exfiltration, impact]`, splits budget, and weights XM categories (history boost × `1/(1+0.2×fail_streak)` decay).
 3. **Drive** — `redteam/dag.py:CampaignRuntime` walks the DAG (`ready_nodes()`, `BudgetLedger` trips at 80 %, `should_converge()` after 2 idle rounds, `_rotate_ops()` after 5 consecutive failures in a category). All progress emits to `bus` channel `campaign:{id}`.
-4. **Mutate** — `redteam/mutator/ops.py` + `ops.yaml`: **28 operators** in 9 types, each flagged `semantics_safe`. `fragment_shuffle` and `payload_shorten` are the only non-safe ones. `payload.py:PayloadSmith.generate()` swallows *all* LLM exceptions and falls back to the seed corpus.
+4. **Mutate** — `redteam/mutator/ops.py` + `ops.yaml`: **30 operators** in 9 types, each flagged `semantics_safe`. `fragment_shuffle` and `payload_shorten` are the only non-safe ones. `payload.py:PayloadSmith.generate()` swallows *all* LLM exceptions and falls back to the seed corpus.
 5. **Execute** — `redteam/runner.py:execute_campaign()` is the **single shared entry point** used both inline by the API and by the Celery worker. `resolve_client()` picks `SandboxChatClient` (when the campaign has a `scenario_instance_id`) else `GatewayChatClient`. `attacker.py` runs multi-turn attacks and calls the *golden* judge **per turn**, short-circuiting to `Verdict.success` @0.99 on a golden hit.
 6. **Judge** — `xian_core/judge` three levels, golden → classifier → LLM:
-   - `rules.py:evaluate()` reads `golden_rules.yaml` — 10 rules `G-01`…`G-10`, keyed by `type:` (`canary_egress`/`canary_output` at priority 100 down to `resource_exhaustion` at 60), each with `action: instant_success` or a rule body. The same YAML also holds the `classifiers:` word lists.
+   - `rules.py:evaluate()` reads `golden_rules.yaml` — 11 rules `G-01`…`G-11`, keyed by `type:` (`canary_egress`/`canary_output` at priority 100 down to `resource_exhaustion` at 60), each with `action: instant_success` or a rule body. The same YAML also holds the `classifiers:` word lists.
    - `classifiers.py:classify()` — a refusal hit immediately yields `Verdict.fail` (deliberate: never score a refusal as success).
    - `llm_judge.py` — dual judges + `vote()` with `needs_human_review` on disagreement.
    - `engine.py:JudgeEngine.adjudicate()` returns `degraded=True, level=classifier` on any LLM failure. `unavailable` is never used to swallow a hit.
@@ -113,12 +113,12 @@ Content assets are versioned with the code and loaded through `@lru_cache(maxsiz
 
 | Asset | Loader |
 | --- | --- |
-| `cases/seed/xm-01…xm-14.yaml` (144 cases, `{{var}}` templates) | `xian_core.cases.load_seed_cases()` |
+| `cases/seed/xm-01…xm-14.yaml` (134 cases, `{{var}}` templates) | `xian_core.cases.load_seed_cases()` |
 | `matrix/categories.yaml`, `frameworks.yaml` (OWASP LLM Top10 / MITRE ATLAS / 生成式 AI 暂行办法) | `matrix.catalog.load_categories()/load_frameworks()` |
-| `redteam/strategies/library.yaml` (9 strategies) | `redteam.strategies.load_strategies()` |
-| `redteam/mutator/ops.yaml` (28 operators) | `redteam.mutator.load_ops()` |
-| `judge/golden_rules.yaml` (10 golden rules + classifier word lists) | `judge.rules.load_rules()` |
-| `remediation/root_causes.yaml`, `playbooks/*.yaml` (8 causes / 7 playbooks) | `remediation.engine.load_root_causes()/load_playbooks()` |
+| `redteam/strategies/library.yaml` (18 strategies) | `redteam.strategies.load_strategies()` |
+| `redteam/mutator/ops.yaml` (30 operators) | `redteam.mutator.load_ops()` |
+| `judge/golden_rules.yaml` (11 golden rules `G-01`…`G-11` + classifier word lists) | `judge.rules.load_rules()` |
+| `remediation/root_causes.yaml`, `playbooks/*.yaml` (8 causes / 8 playbooks) | `remediation.engine.load_root_causes()/load_playbooks()` |
 | `scenarios/templates/S1…S8/` (5 YAMLs + compose each) | `scenarios.catalog.load_templates()` |
 
 Two things matter here: `scenarios/catalog.py` treats a template failing `validate_dsl` as a **content defect and raises at import** rather than skipping it — a malformed template breaks app startup, not just that scenario. And `cases/seed/*.yaml` raw payload export is gated: only `admin`, via `assert_export_allowed()` → `ExportForbidden`.
@@ -126,7 +126,7 @@ Two things matter here: `scenarios/catalog.py` treats a template failing `valida
 ### API surface & cross-cutting
 
 - App factory: `backend/services/api/src/xian_api/main.py:app`. `api_prefix` = `/api/v1`; `/healthz` and `/readyz` sit directly on the app (no router); `/readyz` returns 503 when the DB is unreachable.
-- **11 router modules** under `xian_api/routers/` (agents, scenarios, campaigns, sessions, records, reports_api, matrix, levels, profile, admin, auth) → 73 routes + 2 health probes. `records.py` is the only router with no prefix.
+- **12 router modules** under `xian_api/routers/` (agents, scenarios, campaigns, sessions, records, reports_api, matrix, levels, profile, admin, llm, auth) → 81 routes + 2 health probes (`/healthz`, `/readyz`, mounted directly on the app, not via a router). `records.py` is the only router with no prefix.
 - Auth is **dev-mode header-based**: `deps.py:get_principal()` reads `X-Tenant-Id` / `X-User-Id` / `X-Role`. Four roles (`admin`/`red`/`blue`/`viewer`), permission strings checked via `require("campaign:run")` etc. The HS256 JWT path in `routers/auth.py` is **not** wired to `get_principal`. Swapping in real JWT/OIDC is the obvious production hole.
 - **Multi-tenancy is enforced in `db/repositories/base.py:_base_query()`**, which force-filters `tenant_id` when the model has it. Any new repository inherits this; never write raw queries against a tenant-scoped model.
 - WebSocket channels (in `main.py`, since `xian_api/ws/` is docstring-only dead code): `/ws/campaign/{id}` → channel `campaign:{id}` and `/ws/session/{id}` → channel **`sessions:{id}`** (plural).
@@ -135,18 +135,18 @@ Two things matter here: `scenarios/catalog.py` treats a template failing `valida
 ### Frontend (`frontend/`)
 
 - Three packages: `@xian/types` (hand-written contracts + `openapi.json`), `@xian/ui` (design system), `@xian/web` (app). `@xian/web`'s Vite config aliases `@xian/ui` and `@xian/types` to their `src/`, so **workspace packages are consumed as source**, never from built `dist/`.
-- **Single source of truth for the contract is the backend Pydantic schema.** `packages/types/src/models.ts` (~60 interfaces) is *hand-aligned* to it; `api.ts` `ROUTES` (~66 constants) is hand-kept in sync with the backend routers. **`python scripts/xian.py codegen` only re-exports `openapi.json`; it does not regenerate TypeScript.** After changing a Pydantic schema, run codegen *and* hand-edit `models.ts`/`ROUTES`. (`packages/types/scripts/generate.sh` additionally runs `openapi-typescript`, but its output `src/openapi.generated.ts` is missing and imported by nothing.)
+- **Single source of truth for the contract is the backend Pydantic schema.** `packages/types/src/models.ts` (53 interfaces) is *hand-aligned* to it; `api.ts` `ROUTES` (68 constants) is hand-kept in sync with the backend routers. **`python scripts/xian.py codegen` only re-exports `openapi.json`; it does not regenerate TypeScript.** After changing a Pydantic schema, run codegen *and* hand-edit `models.ts`/`ROUTES`. (`packages/types/scripts/generate.sh` additionally runs `openapi-typescript`, but its output `src/openapi.generated.ts` is missing and imported by nothing.)
 - `@xian/ui` conventions: business code imports only from the package root, never from third-party component source. `cva` variant props (`Button.buttonVariants`), `cn() = twMerge(clsx(...))`, and design tokens via `@xian/ui/styles/tokens.css`. The Tailwind preset in `packages/config/tailwind/preset.js` maps those tokens in — **no hard-coded colors in business code**.
 - State: Zustand v5 for client/session state (`src/store/`), TanStack Query v5 for all server state (`src/lib/api/hooks.ts`, ~65 hooks). API calls go through the hand-written client in `src/lib/api/client.ts`, which injects the tenant headers and maps domain error codes to Chinese `HINTS`.
-- The 10 `backgrounds/` components (Threads, Particles, Radar, …) are **Canvas 2D / DOM rewrites with zero WebGL contexts**, all wrapped by `BackgroundLayer` (`aria-hidden` + `pointer-events:none` + `prefers-reduced-motion` + visibility pause). Page-level code must go through the `features/<domain>/components/<Name>Backdrop.tsx` wrappers, never import the component directly.
+- The 10 `backgrounds/` components (Threads, Particles, Radar, …) are **ReactBits upstream source, TypeScript-ised**: 9 run on WebGL (`ogl` ×8, `three`+`postprocessing` ×1 for GridScan, raw WebGL ×1 for Lightning); only `LetterGlitch` is Canvas 2D. All are wrapped by `BackgroundLayer` (`aria-hidden` + `pointer-events:none` + `prefers-reduced-motion` + visibility pause + silent degrade when no WebGL context is available). Page-level code must go through the `features/<domain>/components/<Name>Backdrop.tsx` wrappers, never import the component directly. `BackgroundLayer` takes an `inline` prop: default `false` keeps the whole-viewport `fixed` layer (right for page ambience), but a decoration that must stay *inside* a card has to pass `inline` — otherwise `fixed` walks straight through the card's `overflow-hidden` and covers the whole screen.
 - **Frontend unit tests live in `apps/web/tests/*.test.ts`.** The Vitest config inside `apps/web/vite.config.ts` has `include: ['tests/**/*.test.{ts,tsx}']`, so a test placed under `src/` will silently never run. E2E specs live in `apps/web/tests/e2e/`; `playwright.config.ts` has no `webServer` block, so you must start the dev server yourself.
 
 ## Conventions and traps
 
 - **The exception `http_status` attribute is dead code.** `errors.py` declares e.g. `BudgetTripped.http_status = 409`, but the actual mapping is the hard-coded `code_map` dict in `xian_api/main.py:domain_exception_handler`, which disagrees (`BudgetTripped` → 402, `ValidationError` → 400, `JudgeDegraded` → 503, `TargetUnavailable` → 502, `LLMProviderError` → 502). When changing a status code, edit `main.py`; the class attribute and any doc counting on it will be stale.
-- **Stale numbers in `README.md` / `docs/architecture.md` / `docs/acceptance.md`:** they claim "26 router / 63 路由" (the code has 11 routers / 75 endpoints, and `docs/api.md`'s "共 75 个" agrees with the code) and "React 18" (actual: React 19, TypeScript 5.9.3, Vite 5.4). Don't propagate the stale figures, and don't "fix" the code to match the docs.
+- **Doc numbers were reconciled with the code on 2026-10-09** (previously `README.md` / `docs/architecture.md` / `docs/acceptance.md` claimed "26 router / 63 路由", "56 schema", "React 18"). Authoritative counts now: **12 routers / 81 routes** (+ `/healthz`, `/readyz` on the app), **86 Pydantic contracts** (69 models + 17 enums), **21 `xian_core` packages**, React 19 / TypeScript 5.6.3 / Vite 5.4.10, and test counts **291 backend + 15 examples + 35 frontend**. `docs/api.md`'s endpoint table now covers all 81 routes. Re-verify with the loaders/counters before changing any of these again, and don't "fix" the code to match a stale doc.
 - **Ruff deliberately ignores `RUF001/002/003`** (Chinese full-width punctuation flagged as ambiguous), `N818` (domain exceptions like `PermissionDenied`/`QuotaExceeded` skip the `Error` suffix — those names are part of the frontend error-code contract), and `B008` (FastAPI `Depends()` / Typer `Option()` in signature defaults). Line length 110.
-- **Underscore-prefixed files at repo root (`f1-f4.py`, `m1-m4.py`, `patch_*.py`, `fix_*.py`) are one-off, already-applied scratch patchers** that rewrote the ReactBits backgrounds from WebGL to Canvas 2D and applied misc fixes. They are not tooling and not import-safe — ignore them.
+- **Underscore-prefixed scratch scripts are one-off patchers, not tooling.** The historical `f1-f4.py` / `m1-m4.py` batch (which once rewrote the ReactBits backgrounds to Canvas 2D) has been deleted — the backgrounds are back on real upstream WebGL source. Any `_*.py` you find is already applied and not import-safe; ignore it, and don't reintroduce a Canvas-2D rewrite of the backgrounds.
 - `.xian-dev.db` at repo root is a checked-in file-backed SQLite dev database (matching the `sqlite+aiosqlite:///./.xian-dev.db` used by the `backend/outputs/_restart*.py` scratch scripts). `outputs/` is the single gitignored artifact tree (`sandbox/`, `snapshots/`, `reports/`).
 - `enum_str()` in `schemas/common.py` must be used at every DB write boundary — `str(Enum)` returns `ClassName.NAME` on Python ≥3.11 and silently corrupts stored values otherwise. This is a documented past bug.
 - **Security invariants that are spec, not bugs:** an Agent must pass ownership verification (`dns_txt` or `image_digest`) before it can be a Mode-1 target (`assert_verified` → `OwnershipNotVerified`/403); sandbox egress is default-deny through `EgressProxy`, which maps any external host to `*<domain>.xian-sandbox.invalid`; `assert_no_real_credential()` blocks `AKIA`/`sk-proj-`/`ghp_` patterns and raises `EgressBlocked`; canary key-type values in scenario YAML must be `sk-canary-*` or a `{{ }}` template, never a real credential.

@@ -5,7 +5,7 @@
 | 编号 | 验收标准 | 实现落点 | 验证方式 | 状态 |
 | --- | --- | --- | --- | --- |
 | AC-01 | 从接入 Agent 到产出含修复建议的战役报告，全流程 ≤ 30min | 接入 → 归属校验 → 侦察 → 战役执行 → 九章报告 | `python scripts/xian.py smoke` 实测 **27s** | ✅ |
-| AC-02 | HTTP / SDK / 容器三种方式各完成 1 次成功接入与连通性测试 | `redteam/clients.py` 三客户端 + `examples/demo-agent` 三种接入示例 | `examples/demo-agent/test_demo_agent.py` 13 条 + HTTP 服务真实起端口联调 | ✅ |
+| AC-02 | HTTP / SDK / 容器三种方式各完成 1 次成功接入与连通性测试 | `redteam/clients.py` 三客户端 + `examples/demo-agent` 三种接入示例 | `examples/demo-agent/test_demo_agent.py` 15 条 + HTTP 服务真实起端口联调 | ✅ |
 | AC-03 | 黄金信号判定无漏报；人工抽检 100 条，裁判一致率 ≥ 85% | `xian_core/judge` 三级流水线，黄金信号优先 | judge 单测（正反例）+ `verdicts` 逐条可追溯 | ✅ |
 | AC-04 | 14 类攻击全部有可执行用例；MVP 至少覆盖 3 类并可跑通 | `cases/seed/xm-01…xm-14.yaml` + `mutator/ops.yaml` 变异算子 | `xn matrix` 用例清单 + 战役执行 | ✅ |
 | AC-05 | 报告九章齐备，导出 HTML/PDF/JSON 三种格式成功 | `xian_core/reports` + `worker/tasks/report_render.py` | reports 单测断言章节与三种导出 | ✅ |
@@ -80,12 +80,12 @@ python -m pytest examples/demo-agent -q         # AC-02
 | 指标 | 目标 | 实测 |
 | --- | --- | --- |
 | 端到端冒烟耗时 | ≤ 30 min | 27 s |
-| 后端单测 | 全绿 | 240 passed |
+| 后端单测 | 全绿 | 291 passed |
 | 示例 Agent 自检 | 全绿 | 15 passed |
 | 前端单测 | 全绿 | 35 passed |
-| API 路由数 | PRD 模块全覆盖 | 69 路由 / 26 router |
-| Pydantic 契约 | 前后端同源 | 69 schema |
+| API 路由数 | PRD 模块全覆盖 | 81 路由 / 12 router（另 2 个健康探针） |
+| Pydantic 契约 | 前后端同源 | 86 个（69 模型 + 17 枚举） |
 | 攻击矩阵 | 14 类 | XM-01 … XM-14 全量种子 |
 | 报告章节 | 九章 | 执行摘要 … 合规映射 |
 | 关卡 | 十关 | L1 … L10 |
-| 同屏 WebGL context | ≤ 2 | 0 |
+| 同屏 WebGL context | ≤ 2 | ≤ 2（全局 Threads + 单页装饰层） |

@@ -19,7 +19,7 @@
 | 分页 | `?page=1&size=20`，返回 `Page`（`{items, total, page, size}`） |
 | WebSocket | `ws://host/ws/campaign/{id}`、`ws://host/ws/session/{id}` |
 
-## 2. 端点清单（共 75 个）
+## 2. 端点清单（共 81 个）
 
 | `GET` | `/api/v1/admin/audit-logs` | admin | 200 | Audit Logs |
 | `GET` | `/api/v1/admin/gate-rules` | admin | 200 | List Gate Rules |
@@ -40,9 +40,11 @@
 | `POST` | `/api/v1/agents/{agent_id}/verify` | agents | 200 | Verify Ownership |
 | `POST` | `/api/v1/agents/{agent_id}/versions` | agents | 200 | Create Agent Version |
 | `GET` | `/api/v1/agents/{agent_id}/versions` | agents | 200 | List Versions |
+| `POST` | `/api/v1/auth/register` | auth | 200 | Register |
 | `POST` | `/api/v1/auth/login` | auth | 200 | Login |
 | `GET` | `/api/v1/auth/me` | auth | 200 | Me |
 | `POST` | `/api/v1/campaigns` | campaigns | 201 | Create Campaign |
+| `POST` | `/api/v1/campaigns/preview-plan` | campaigns | 200 | Preview Plan |
 | `GET` | `/api/v1/campaigns` | campaigns | 200 | List Campaigns |
 | `GET` | `/api/v1/campaigns/{campaign_id}` | campaigns | 200 | Get Campaign |
 | `PATCH` | `/api/v1/campaigns/{campaign_id}` | campaigns | 200 | Update Campaign |
@@ -55,9 +57,14 @@
 | `POST` | `/api/v1/levels/{code}/hint` | levels | 200 | Use Hint |
 | `POST` | `/api/v1/levels/{code}/start` | levels | 201 | Start Level |
 | `POST` | `/api/v1/levels/{code}/submit` | levels | 200 | Submit Attempt |
+| `GET` | `/api/v1/llm/providers` | llm | 200 | Providers |
+| `GET` | `/api/v1/llm/status` | llm | 200 | Gateway Status |
+| `POST` | `/api/v1/llm/probe` | llm | 200 | Probe Endpoint |
+| `POST` | `/api/v1/llm/config` | llm | 200 | Update Config |
 | `GET` | `/api/v1/matrix/cases` | matrix | 200 | Cases |
 | `GET` | `/api/v1/matrix/cases/{case_id}` | matrix | 200 | Case Detail |
 | `GET` | `/api/v1/matrix/cases/{case_id}/export` | matrix | 200 | Export Case |
+| `GET` | `/api/v1/matrix/cases/{case_id}/render` | matrix | 200 | Render Payload |
 | `POST` | `/api/v1/matrix/cases/{case_id}/review` | matrix | 200 | Review Case |
 | `GET` | `/api/v1/matrix/categories` | matrix | 200 | Categories |
 | `GET` | `/api/v1/matrix/coverage` | matrix | 200 | Coverage |
@@ -76,6 +83,7 @@
 | `POST` | `/api/v1/reports/campaigns/{campaign_id}` | reports | 200 | Generate Campaign Report |
 | `GET` | `/api/v1/reports/{report_id}` | reports | 200 | Get Report |
 | `POST` | `/api/v1/reports/{report_id}/export` | reports | 200 | Export Report |
+| `DELETE` | `/api/v1/reports/{report_id}` | reports | 200 | Delete Report |
 | `POST` | `/api/v1/reports/{report_id}/share` | reports | 200 | Share Report |
 | `GET` | `/api/v1/scenarios` | scenarios | 200 | Market |
 | `POST` | `/api/v1/scenarios/instances` | scenarios | 201 | Instantiate |
@@ -172,4 +180,4 @@ python scripts/xian.py scan
 | 管理 | `AuditLogOut`、`MemberCreate`、`GateRuleOut`、`ScanJobOut` |
 | 枚举 | `AccessType`、`AgentStatus`、`CampaignStatus`、`Intensity`、`JudgeMode`、`OutputMode`、`Role`、`Severity`、`Difficulty`、`ToolScope` |
 
-完整定义见 `frontend/packages/types/src/models.ts` 与 `schemas/` 目录，共 56 个 schema。
+完整定义见 `frontend/packages/types/src/models.ts` 与 `schemas/` 目录，共 86 个契约（69 模型 + 17 枚举）。

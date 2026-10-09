@@ -29,7 +29,7 @@ HTTP/WS ──► xian_api (FastAPI) ──► xian_core ──► PostgreSQL / 
 
 ```
 backend/
-├── libs/xian_core/                       # 核心层：22 个业务包
+├── libs/xian_core/                       # 核心层：21 个业务包
 │   ├── agents/      Agent 资产、版本、归属校验、画像、变更信号
 │   ├── bus/         事件总线（PG NOTIFY / WS 广播的领域事件封装）
 │   ├── cases/       攻击用例种子（14 类 XM-*.yaml）与装载器
@@ -47,11 +47,11 @@ backend/
 │   ├── reports/     九章报告渲染（HTML / PDF / JSON / Markdown）
 │   ├── sandbox/     沙箱编排：实例池、快照、销毁、网络白名单、蜜标
 │   ├── scenarios/   场景模板、DSL、实例化
-│   ├── schemas/     Pydantic 契约（56 个 schema，前后端同源）
+│   ├── schemas/     Pydantic 契约（86 个：69 模型 + 17 枚举，前后端同源）
 │   ├── scoring/     SecScore 计算、评级、趋势点
 │   ├── sessions/    模式二会话与战斗卡片
 │   └── storage/     ClickHouse / Redis / Qdrant / MinIO 客户端
-├── services/api/    # FastAPI：26 个 router、63 个路由、WS 两个频道
+├── services/api/    # FastAPI：12 个 router、81 个路由、WS 两个频道
 ├── services/worker/ # Celery：campaign / retest / report_render / scan / notify
 └── services/cli/    # typer CLI：seed / version / scan
 ```
@@ -95,10 +95,10 @@ backend/
 frontend/
 ├── packages/types/    OpenAPI 派生的类型契约（enums / events / models / api）
 ├── packages/ui/       组件库（primitives / feedback / motion / data / viz / backgrounds）
-└── apps/web/          应用层：features（薄封装）+ pages（路由级页面）
+└── apps/web/          应用层：features（薄封装）+ pages（16 个路由级页面）
 ```
 
-- `packages/types/src/api.ts` 的 `ROUTES` 与后端 26 个 router 一一对应，
+- `packages/types/src/api.ts` 的 `ROUTES`（68 项）与后端 12 个 router / 81 个路由一一对应，
   路由常量改一处即可全局同步，避免前端硬编码 URL。
 - 业务页面不直接引用第三方背景组件源码，一律经 `packages/ui` 封装；
   背薄的 `features/<domain>/components/<Name>Backdrop.tsx` 只决定"挂在哪、何时启停"。

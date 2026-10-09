@@ -71,7 +71,7 @@
 - LLM 网关无凭证 → 确定性离线回放；
 - PG / CH / Qdrant / MinIO / Redis 未配置 → 内存或本地 `outputs/` 回落；
 - 沙箱无 Docker → `MockRuntime` 内存实例池；
-- 被测 Agent 不部署 → `examples/demo-agent` 13 条自检 + 内存客户端。
+- 被测 Agent 不部署 → `examples/demo-agent` 15 条自检 + 内存客户端。
 
 因此 `python scripts/xian.py smoke` 在纯本机 27 秒跑完 AC-01 全链路。
 
@@ -82,11 +82,13 @@
 
 **方案**：约束先于实现。
 
-- 背景层固定 `position: fixed` + `z-index: -1` + `aria-hidden` + `pointer-events: none`；
+- 背景层默认固定 `position: fixed` + `z-index: var(--z-backdrop)` + `aria-hidden` + `pointer-events: none`；
+  需要收进卡片内部时走 `BackgroundLayer` 的 `inline` 模式改为相对定位，否则 fixed 会绕过卡片的
+  `overflow-hidden` 铺满全屏（关卡通关光环踩过这个坑，见 `LevelMapPage.tsx`）；
 - 颜色只允许来自 Design Tokens，注入只发生在 `packages/ui` 封装层；
-- 按路由 `React.lazy` 加载，不计入首屏 JS 预算；
-- `prefers-reduced-motion` / 全局减弱动效开关 → 静态降级；
-- 全部用 Canvas 2D / DOM / CSS 实现，同屏 WebGL context = 0；
+- 按路由 `React.lazy` 加载，不计入首屏 JS 预算；同屏 WebGL context 控制在 2 个以内；
+- `prefers-reduced-motion` / 全局减弱动效开关 → 静态降级；WebGL 上下文拿不到时静默降级不白屏；
+- 10 个组件中 9 个走 WebGL（`ogl` / `three` / 裸 WebGL），仅 `LetterGlitch` 为 Canvas 2D；
 - 不以背景闪烁表达告警语义（告警走 CSS 脉冲 + 语义色）。
 
 ## 难点八：跨平台工程入口

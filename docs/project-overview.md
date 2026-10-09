@@ -26,13 +26,13 @@
 
 ### 1. 单一事实源的契约体系
 
-后端用 Pydantic 定义 56 个 schema → 自动导出 OpenAPI → 前端 `packages/types` 手工对齐。
+后端用 Pydantic 定义 86 个契约（69 个模型 + 17 个枚举）→ 自动导出 OpenAPI → 前端 `packages/types` 手工对齐。
 契约改一处，前后端同时可见；`scripts/xian.py codegen` 一条命令重新出契约。
-后端 26 个 router 与前端 `ROUTES` 常量一一对应，避免 URL 散落硬编码。
+后端 12 个 router / 81 个路由与前端 `ROUTES` 常量（68 项）一一对应，避免 URL 散落硬编码。
 
 ### 2. 核心层零框架依赖
 
-`xian_core`（22 个业务包）不 import FastAPI / Celery，只暴露函数。
+`xian_core`（21 个业务包）不 import FastAPI / Celery，只暴露函数。
 同一段红军引擎、裁判、评分、报告渲染逻辑，被 FastAPI 路由、Celery 异步任务、
 CLI 门禁三方复用，从结构上消灭"接口里一套、任务里一套"的分叉。
 
@@ -54,7 +54,7 @@ PG 管事务型元数据、ClickHouse 管 trace 与判定流水、Qdrant 管用�
 `gateway._offline_complete` 在无 LLM 凭证时按角色返回确定性响应
 （judge 走规则路径、embedding 走稳定向量）。
 测试因此断言的是"协议与状态机正确"，而不是"模型够不够聪明"，
-让 118 条后端用例 + 13 条示例 Agent 用例 + 14 条前端用例在无网环境全绿。
+让 291 条后端用例 + 15 条示例 Agent 用例 + 35 条前端用例在无网环境全绿。
 
 ### 6. 全链路防滥用（AC-09）
 
@@ -68,13 +68,16 @@ Agent 必须先完成归属校验（`dns_txt` / `image_digest`）才能作为模
 命中蜜标域名即记录；演示结束实例与数据按策略销毁。
 `xian_core.sandbox.mock_runtime` 让 CI 无需 Docker 也能跑容器接入路径。
 
-### 8. 10 个 ReactBits 风格背景组件，零 WebGL 依赖
+### 8. 10 个 ReactBits 背景组件，WebGL 按路由懒加载
 
 按技术方案 8.7 实现 `Threads / Particles / Radar / GridScan / FaultyTerminal /
-LetterGlitch / DarkVeil / Aurora / Orb / Lightning`，**全部用 Canvas 2D / DOM / CSS 重写**，
-同屏 WebGL context 数为 0，不占首屏 JS 预算；
+LetterGlitch / DarkVeil / Aurora / Orb / Lightning`，全部取自 ReactBits 上游源码
+（TypeScript 化 + token 绑定 + 降级链封装）：其中 9 个走 WebGL
+（`ogl` 8 个、`three` + `postprocessing` 1 个、裸 WebGL 1 个），只有 `LetterGlitch`
+是 Canvas 2D。同屏 WebGL context 控制在 2 个以内，且按路由 `React.lazy` 加载、
+不计入首屏 JS 预算；
 统一 `BackgroundLayer` 封装层保证 `aria-hidden` + `pointer-events: none` + token 主题化 +
-`prefers-reduced-motion` 降级 + 页面隐藏暂停渲染。
+`prefers-reduced-motion` 降级 + 页面隐藏暂停渲染，WebGL 不可用时静默降级不白屏。
 来源、许可、改动点完整登记在 `docs/backgrounds.md`。
 
 ### 9. 跨平台一键入口
@@ -94,7 +97,7 @@ Prometheus 抓取配置；Alembic 迁移；Ruff / Black / mypy 配置齐备；
 
 | 面 | 选型 |
 | --- | --- |
-| 前端 | React 18 + TypeScript + Vite + pnpm workspace + Turbo、Tailwind、Radix UI、ECharts、XTerm、@xyflow/react、react-virtuoso、Dexie、Vitest、Playwright、Storybook |
+| 前端 | React 19 + TypeScript 5.6 + Vite 5 + pnpm workspace、Tailwind 3、Radix UI、ECharts、XTerm、@xyflow/react、react-virtuoso、Dexie、Vitest、Playwright、Storybook |
 | 后端 | Python 3.12+、FastAPI、SQLAlchemy 2.0（async）、Alembic、Celery、Pydantic v2、Typer |
 | 数据 | PostgreSQL 16、Redis 7、ClickHouse 24、Qdrant 1.12、MinIO |
 | AI | LiteLLM 网关（redteam/target/judge/embedding 四角色路由）、三级裁判、向量检索 |

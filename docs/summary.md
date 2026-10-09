@@ -9,12 +9,12 @@
 | --- | --- |
 | 架构 | 四层逻辑架构（接入 / 核心 / 运行时 / 门面），src-layout 工程结构 |
 | 数据库 | PG 12 组模型 + Alembic 迁移 + ClickHouse trace/verdicts + Qdrant `attack_cases` + MinIO + 前端 IndexedDB |
-| 后端 | `xian_core` 22 个业务包 + 26 个 router 63 路由 + 5 类 Celery 任务 + CLI |
-| 前端 | pnpm 三包单仓（types / ui / web），15 条路由级页面，41 个 UI 组件含 10 个背景动效 |
+| 后端 | `xian_core` 21 个业务包 + 12 个 router 81 路由 + 5 类 Celery 任务 + CLI |
+| 前端 | pnpm 三包单仓（types / ui / web），16 个路由级页面，94 个导出组件含 10 个背景动效 |
 | AI / 向量 / RAG | LiteLLM 四角色路由、三级裁判、用例向量检索、Playbook 驱动修复建议 |
-| 测试 | 118 后端 + 13 示例 Agent + 14 前端 = **145 条**，Storybook 3 组，Playwright E2E |
+| 测试 | 291 后端 + 15 示例 Agent + 35 前端 = **341 条**，Storybook 3 组，Playwright E2E |
 | 部署 | Compose dev/prod、nginx、Helm、Prometheus、沙箱镜像、default-deny 出口代理 |
-| 文档 | 本文档目录下 8 份手册 + 根 README |
+| 文档 | 本文档目录下 10 份手册 + 根 README + CLAUDE.md |
 
 全部 11 条验收标准（AC-01 ~ AC-11）均已完成实现并给出可执行验证入口。
 

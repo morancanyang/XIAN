@@ -8,8 +8,8 @@
 | --- | --- | --- | --- |
 | 单元测试（核心层） | `backend/libs/xian_core/tests/` | pytest | 覆盖 agent / judge / scoring / reports / levels / sandbox / matrix / remediation / ops |
 | 单元测试（服务层） | `backend/services/{api,worker,cli}/tests/` | pytest | 覆盖 API 流程、Worker 任务、CLI 门禁 |
-| 示例 Agent 自检 | `examples/demo-agent/test_demo_agent.py` | pytest | 13 条 |
-| 前端单元测试 | `frontend/apps/web/src/**/*.test.ts` | Vitest | 14 条（format / desensitize / api） |
+| 示例 Agent 自检 | `examples/demo-agent/test_demo_agent.py` | pytest | 15 条 |
+| 前端单元测试 | `frontend/apps/web/tests/*.test.{ts,tsx}` | Vitest | 35 条（10 个文件） |
 | 前端组件故事 | `frontend/packages/ui/src/**/*.stories.tsx` | Storybook | Button / Viz / Backgrounds 三组 |
 | 端到端冒烟 | `scripts/xian.py smoke` / `scripts/smoke.sh` | 自研 | AC-01 全链路 |
 | 端到端用例 | `frontend/apps/web/tests/e2e/smoke.spec.ts` | Playwright | 页面级冒烟 |
@@ -17,15 +17,16 @@
 ## 2. 运行方式
 
 ```bash
-# 后端全套（118 passed）
+# 后端全套（291 passed）
 python -m pytest backend -q
 # 或
 python scripts/xian.py test
 
-# 示例被测 Agent 自检（13 passed）
+# 示例被测 Agent 自检（15 passed）
 python -m pytest examples/demo-agent -q
 
-# 前端
+# 前端（所有 pnpm 命令都要在 frontend/ 下执行）
+pnpm lint                          # eslint . --max-warnings 0
 pnpm --filter @xian/web typecheck
 pnpm --filter @xian/web test
 pnpm --filter @xian/web build
