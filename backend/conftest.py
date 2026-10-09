@@ -15,8 +15,12 @@ from pathlib import Path
 # 测试一律走确定性离线回放（技术方案 7.2 降级链）。显式清空而不是 setdefault，
 # 否则单独跑某个测试文件时会继承开发机上的真实 Key，导致离线断言不确定。
 # 空 base_url + 空 api_key 时 LLMSettings 也不会按 DEEPSEEK_API_KEY 反推供应商。
-os.environ["XIAN_LLM_BASE_URL"] = ""
-os.environ["XIAN_LLM_API_KEY"] = ""
+# 清空整个 XIAN_LLM_* 命名空间：scripts/xian.py 会把根 .env 灌进环境变量，
+# 只清 Key 不清 XIAN_LLM_PROVIDER 的话，LLMSettings 仍能按预设反推出端点与模型名，
+# 网关依旧被判成在线。官方冒烟入口 python scripts/xian.py smoke
+# 会在任何配过 .env 的机器上必红（AC-01 验收无法执行）。
+for _env in [k for k in os.environ if k.startswith("XIAN_LLM_")]:
+    os.environ.pop(_env, None)
 for _env in ("DEEPSEEK_API_KEY", "MOONSHOT_API_KEY", "DASHSCOPE_API_KEY",
              "SILICONFLOW_API_KEY", "ZHIPU_API_KEY", "OPENAI_API_KEY"):
     os.environ.pop(_env, None)
