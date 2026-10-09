@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ..cases import cases_by_category
-from ..matrix import load_categories
+from ..matrix import load_categories, normalize_stage
 from ..schemas.campaign import Budget, DagNode
 from ..schemas.common import Intensity
 
@@ -216,20 +216,12 @@ def build_plan(
 
 
 def _stage_of(raw_stage: str) -> str:
-    text = (raw_stage or "").lower()
-    if "侦察" in raw_stage or "recon" in text:
-        return "recon"
-    if "渗出" in raw_stage or "exfiltrat" in text:
-        return "exfiltration"
-    if "提权" in raw_stage or "权限" in raw_stage or "escalat" in text:
-        return "privilege_escalation"
-    if "持久化" in raw_stage or "横向" in raw_stage:
-        return "privilege_escalation"
-    if "载荷投递" in raw_stage or "payload" in text:
-        return "payload_delivery"
-    if "影响" in raw_stage or "impact" in text:
-        return "impact"
-    return "initial_exec"
+    """类别声明的 stage 文本 -> 规范阶段键（六段）。
+
+    归一规则统一放在 matrix.catalog：报告的攻击路径图要用同一份类别阶段
+    收敛成五段 kill chain，两边各写一张码表必然对不上。
+    """
+    return normalize_stage(raw_stage)
 
 
 def _depends_on(stage: str, category_code: str, existing: list[str]) -> list[str]:

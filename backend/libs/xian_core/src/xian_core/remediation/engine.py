@@ -14,12 +14,15 @@ from typing import Any
 import yaml
 
 from ..errors import NotFoundError
+from ..matrix import KILL_CHAIN_STAGES, stage_of_category
 from ..schemas.report import FindingOut, RecommendationOut, RemediationRunOut
 
 CAUSE_DIR = Path(__file__).resolve().parent
 PLAYBOOK_DIR = CAUSE_DIR / "playbooks"
 
-STAGES = ("recon", "delivery", "privilege_escalation", "exfiltration", "impact")
+#: 报告攻击路径的五段 kill chain（PRD 3.7.4.8.2 / 3.7.5.8.1），与前端报告页 STAGE_ORDER 对齐。
+#: 阶段归一规则统一放在 matrix.catalog，避免这里再手抄一张会漂移的码表。
+STAGES = KILL_CHAIN_STAGES
 
 
 @lru_cache(maxsize=1)
@@ -181,24 +184,15 @@ def build_attack_path(
 
 
 def _stage_of(record: dict[str, Any]) -> str:
-    category = str(record.get("category_code", ""))
-    mapping = {
-        "XM-01": "recon",
-        "XM-02": "recon",
-        "XM-03": "delivery",
-        "XM-04": "privilege_escalation",
-        "XM-05": "delivery",
-        "XM-06": "privilege_escalation",
-        "XM-07": "impact",
-        "XM-08": "privilege_escalation",
-        "XM-09": "delivery",
-        "XM-10": "exfiltration",
-        "XM-11": "impact",
-        "XM-12": "impact",
-        "XM-13": "exfiltration",
-        "XM-14": "impact",
-    }
-    return mapping.get(category, "delivery")
+    """命中记录归入五段 kill chain：按类别在 categories.yaml 里声明的阶段推导。
+
+    这里原先手写了一张 XM-xx -> stage 的码表，和种子数据各说各话：
+    14 类里只有 4 类对得上，XM-05（敏感数据渗出）被算成"投递"、
+    XM-13（模型与提示词逆向，侦察）被算成"渗出"、XM-08/09/12（影响）被算成提权或投递。
+    报告的 kill chain 于是和战役 DAG 的阶段列互相矛盾，断裂阶段也判错。
+    现在统一走 matrix.catalog，类别阶段只有一份出处。
+    """
+    return stage_of_category(str(record.get("category_code", "")))
 
 
 # ---------------------------------------------------------------- 整改清单

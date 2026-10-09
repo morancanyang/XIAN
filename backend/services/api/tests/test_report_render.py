@@ -42,11 +42,17 @@ def test_attack_path_includes_success_and_partial() -> None:
 
 
 def test_attack_path_marks_missing_stages() -> None:
+    """只命中投递类用例时，其余四段都该标断裂。
+
+    XM-01 的种子阶段是"载荷投递->初始执行"，归一到五段 kill chain 应落在 delivery；
+    旧码表把它算成 recon，导致缺失阶段集合整组错位。
+    """
     records = [_record("XM-01-001", "XM-01", "success")]
     path = build_attack_path(subject_type="campaign", subject_id="c-1", records=records)
-    assert set(path["missing_stages"]) == {"delivery", "privilege_escalation", "exfiltration", "impact"}
+    assert set(path["missing_stages"]) == {"recon", "privilege_escalation", "exfiltration", "impact"}
+    assert path["kill_chain"] == ["delivery"]
     gap_ids = {str(n["id"]) for n in path["nodes"]}
-    assert "gap-exfiltration" in gap_ids
+    assert "gap-recon" in gap_ids
 
 
 def test_report_payload_exposes_every_chapter() -> None:

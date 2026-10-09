@@ -62,6 +62,48 @@ def get_category(code: str) -> CategoryAsset | None:
     return None
 
 
+def normalize_stage(raw_stage: str) -> str:
+    """把类别声明的 stage 文本归一为规范阶段键（六段 kill chain）。
+
+    计划 DAG 与前端 PlanPreview 的列都用这六段：初始执行与载荷投递分开，
+    这样"载荷投递→初始执行"这类复合阶段能落到最先发生的那一列。
+    """
+    text = (raw_stage or "").lower()
+    if "侦察" in raw_stage or "recon" in text:
+        return "recon"
+    if "渗出" in raw_stage or "exfiltrat" in text:
+        return "exfiltration"
+    if "提权" in raw_stage or "权限" in raw_stage or "escalat" in text:
+        return "privilege_escalation"
+    if "持久化" in raw_stage or "横向" in raw_stage:
+        return "privilege_escalation"
+    if "载荷投递" in raw_stage or "payload" in text:
+        return "payload_delivery"
+    if "影响" in raw_stage or "impact" in text:
+        return "impact"
+    return "initial_exec"
+
+
+#: PRD 3.7.4.8.2 / 3.7.5.8.1：报告攻击路径图是五段 kill chain（侦察/投递/提权/渗出/影响）。
+#: 与前端报告页 STAGE_ORDER 逐字对齐，改这里就要同步改那边。
+KILL_CHAIN_STAGES = ("recon", "delivery", "privilege_escalation", "exfiltration", "impact")
+
+#: 六段归一到五段：载荷投递与初始执行合并为"投递"
+_KILL_CHAIN_COLLAPSE = {"payload_delivery": "delivery", "initial_exec": "delivery"}
+
+
+def kill_chain_stage(raw_stage: str) -> str:
+    """把类别 stage 文本归一到报告攻击路径的五段 kill chain。"""
+    stage = normalize_stage(raw_stage)
+    return _KILL_CHAIN_COLLAPSE.get(stage, stage)
+
+
+def stage_of_category(category_code: str) -> str:
+    """按类别代号取它声明的 kill chain 阶段（五段）；类别缺失时按投递兜底。"""
+    category = get_category(str(category_code))
+    return kill_chain_stage(category.stage) if category else "delivery"
+
+
 def categories_out() -> list[AttackCategoryOut]:
     return [
         AttackCategoryOut(
