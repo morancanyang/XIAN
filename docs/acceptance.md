@@ -40,6 +40,10 @@
   章节重算、清空过期导出指针），不再是追加行；ReportRepository.for_subject 收敛为
   "版本最高、最新创建"的确定性单行查询，存量重复行不会再触发 MultipleResultsFound。
   另提供 DELETE /api/v1/reports/{report_id}（report:export 权限）显式删除报告及其
+- 归属校验目标默认取 Agent 端点主机名：原先硬编码占位域名 agent.example.com，
+  用户照着实测必然失败——该域名既没有对应 TXT 记录，也不属于被接入的 Agent。
+  本地演示由 scripts/serve_api.py 读 outputs/verify-nonce.txt 注入 XIAN_VERIFY_TXT，
+  demo Agent（127.0.0.1:9001）因此可以不走公网 DNS 走通 AC-09 闭环。
   导出记录。存量 25 行已重整为 15 行并全部按修正后的阶段映射重新生成。
 ## 验证入口汇总
 
@@ -56,7 +60,7 @@ python -m pytest examples/demo-agent -q         # AC-02
 | 端到端冒烟耗时 | ≤ 30 min | 27 s |
 | 后端单测 | 全绿 | 235 passed |
 | 示例 Agent 自检 | 全绿 | 15 passed |
-| 前端单测 | 全绿 | 27 passed |
+| 前端单测 | 全绿 | 30 passed |
 | API 路由数 | PRD 模块全覆盖 | 69 路由 / 26 router |
 | Pydantic 契约 | 前后端同源 | 69 schema |
 | 攻击矩阵 | 14 类 | XM-01 … XM-14 全量种子 |

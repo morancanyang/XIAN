@@ -40,6 +40,17 @@ import { errorHint, errorMessage } from '../../lib/api/errors';
 import { fmtDateTime } from '../../lib/utils/format';
 import { RadarScore } from '@xian/ui';
 
+/** 从 Agent 端点取主机名，作为 DNS TXT 校验的默认目标；解析不了时退回占位域名。 */
+function hostOf(endpoint: string): string {
+  const raw = (endpoint || '').trim();
+  if (!raw) return 'agent.example.com';
+  try {
+    return new URL(raw).hostname || 'agent.example.com';
+  } catch {
+    return raw.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '').split('/')[0] || 'agent.example.com';
+  }
+}
+
 /** Agent 详情：三步骤（归属校验 / 健康探测 / 侦察画像）+ 版本与场景推荐。 */
 export default function AgentDetailPage() {
   const { agentId = '' } = useParams();
@@ -54,13 +65,19 @@ export default function AgentDetailPage() {
   const toast = useToast();
 
   const [method, setMethod] = useState<'dns_txt' | 'image_digest'>('dns_txt');
-  const [target, setTarget] = useState('agent.example.com');
+  const [target, setTarget] = useState('');
+  const [targetTouched, setTargetTouched] = useState(false);
 
   if (agent.isLoading) return <p className="text-sm text-content-muted">加载中…</p>;
   if (agent.isError) return <ErrorState message={errorMessage(agent.error)} hint={errorHint(agent.error)} onRetry={() => agent.refetch()} />;
   if (!agent.data) return <EmptyState title="Agent 不存在" glitch />;
 
   const a = agent.data;
+
+  // 校验目标默认取 Agent 端点主机名。原先硬编码占位域名 agent.example.com，
+  // 用户照着实测必然失败：那个域名既没有对应 TXT 记录，也不属于被接入的 Agent。
+  // 用户手动改过就以用户为准（targetTouched）；镜像摘要方式不预填。
+  const effectiveTarget = targetTouched ? target : method === 'dns_txt' ? hostOf(a.endpoint) : '';
 
   return (
     <div>
@@ -98,17 +115,25 @@ export default function AgentDetailPage() {
                     </Select>
                   </Field>
                   <Field label="目标" id="v-target" hint="DNS 填域名；镜像填 digest 引用。">
-                    <Input id="v-target" value={target} onChange={(e) => setTarget(e.target.value)} className="font-mono text-xs" />
+                    <Input
+                      id="v-target"
+                      value={effectiveTarget}
+                      onChange={(e) => {
+                        setTargetTouched(true);
+                        setTarget(e.target.value);
+                      }}
+                      className="font-mono text-xs"
+                    />
                   </Field>
                   <CodeBlock>
                     {`# DNS TXT 方式：在域名解析中添加一条 TXT 记录
-${target}.  IN TXT  "域名=xian-verify=<nonce>"`}
+${effectiveTarget}.  IN TXT  "域名=xian-verify=<nonce>"`}
                   </CodeBlock>
                   <Button
                     loading={verify.isPending}
                     onClick={async () => {
                       try {
-                        const rec = await verify.mutateAsync({ method, target });
+                        const rec = await verify.mutateAsync({ method, target: effectiveTarget });
                         toast.success('校验完成', rec.detail);
                         agent.refetch();
                       } catch (e) {
