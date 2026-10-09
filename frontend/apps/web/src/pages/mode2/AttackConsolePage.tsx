@@ -248,6 +248,8 @@ export default function AttackConsolePage() {
                           verdict={String(e.payload?.verdict ?? e.type)}
                           confidence={Number(e.payload?.confidence ?? 0) || undefined}
                           reason={String(e.payload?.reason ?? '')}
+                          degraded={e.payload?.degraded === true}
+                          judgeModel={String(e.payload?.judge_model ?? '') || undefined}
                         />
                       </div>
                     ))}

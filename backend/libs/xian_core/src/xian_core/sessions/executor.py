@@ -55,6 +55,8 @@ class ConsoleOutcome:
     confidence: float = 0.0
     reason: str = ""
     severity: str = "medium"
+    degraded: bool = False
+    judge_model: str = ""
     rule_hits: list[dict[str, Any]] = field(default_factory=list)
     evidence: list[dict[str, Any]] = field(default_factory=list)
     tokens: int = 0
@@ -187,6 +189,10 @@ async def run_console_turn(
         outcome.confidence = float(adjudication.confidence)
         outcome.reason = adjudication.reason
         outcome.severity = adjudication.severity
+        # 降级标记必须原样带到前端：LLM judge 不可用时的离线结论与真实裁判结论
+        # 置信度不可比，混在一起展示会让人以为"模型判过了"。
+        outcome.degraded = bool(adjudication.degraded)
+        outcome.judge_model = adjudication.judge_model
         outcome.rule_hits = list(adjudication.rule_hits)
         outcome.evidence = list(adjudication.evidence)
 
@@ -213,6 +219,8 @@ async def run_console_turn(
             "reason": outcome.reason,
             "case_id": case_id or "",
             "category_code": outcome.category_code,
+            "degraded": outcome.degraded,
+            "judge_model": outcome.judge_model,
             "rule_hits": outcome.rule_hits,
         },
         "judge",

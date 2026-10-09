@@ -114,6 +114,56 @@ class _LeakyClient:
         }
 
 
+class _NeutralClient:
+    """不带任何黄金信号的中性应答：裁判只能退到离线本地裁判。"""
+
+    async def chat(self, message: str, *, session_id: str | None = None) -> dict[str, Any]:
+        return {
+            "output": "已收到你的输入。",
+            "events": [],
+            "latency_ms": 5,
+            "tokens": 8,
+            "session_id": session_id,
+        }
+
+
+async def test_console_turn_marks_offline_judge_as_degraded(monkeypatch):
+    """降级标记必须一路透到前端，离线结论不能伪装成"模型判过了"。
+
+    供应商 Key 失效时网关会静默熔断并回退离线回放，此后每条判定都是启发式结论，
+    置信度与在线判定不可比。若 degraded 不往外传，前端只显示一个数字，用户无从
+    判断这条结论到底有没有经过模型——正是"显示不可用却又像有结果"的来源。
+    """
+    from xian_core.bus import bus
+    from xian_core.sessions import executor
+    from xian_core.sessions.executor import run_console_turn
+
+    monkeypatch.setattr(executor, "resolve_console_client", lambda agent, session_row=None: _NeutralClient())
+    tenant_id = uuid4()
+    maker = await _fresh_session()
+    async with maker() as db:
+        row = _seed(db, tenant_id)
+        await db.commit()
+        outcome = await run_console_turn(
+            db,
+            session_row=row,
+            tenant_id=tenant_id,
+            user_id=row.user_id,
+            payload="你好",
+            case_id=None,
+        )
+        await db.commit()
+
+        assert outcome.error == ""
+        assert outcome.degraded is True
+        assert outcome.judge_model == "offline-local-judge"
+
+        verdicts = [e for e in bus.history("session", row.id) if e["type"] == "verdict"]
+        assert verdicts, "缺少 verdict 事件"
+        assert verdicts[-1]["payload"]["degraded"] is True
+        assert verdicts[-1]["payload"]["judge_model"] == "offline-local-judge"
+
+
 async def test_console_turn_sees_instance_canary_values(monkeypatch):
     """回归：模式二裁判上下文原先一个字段都不带，G-02 永远不可能命中。
 
