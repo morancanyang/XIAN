@@ -17,7 +17,6 @@ ROOT = Path(__file__).resolve().parent.parent
 BACKEND = ROOT / "backend"
 
 DB = ROOT / ".xian-dev.db"
-NONCE_FILE = ROOT / "outputs" / "verify-nonce.txt"
 
 
 def _load_dotenv() -> None:
@@ -43,10 +42,10 @@ def bootstrap() -> None:
         "XIAN_CORS_ORIGINS",
         "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174",
     )
-    if NONCE_FILE.exists():
-        nonce = NONCE_FILE.read_text(encoding="utf-8").strip()
-        if nonce:
-            os.environ["XIAN_VERIFY_TXT"] = f"127.0.0.1=xian-verify={nonce}"
+    # 本地/离线演示：把 127.0.0.1 声明为已持有域名，任意一次性 nonce 均视为匹配。
+    # 接入向导每给一个新 Agent 生成新 nonce，写死单个 nonce 会让第二个 Agent 起
+    # 归属校验必然失败。已由环境变量或 .env 显式指定时不覆盖。
+    os.environ.setdefault("XIAN_VERIFY_TXT", "127.0.0.1=xian-verify=*")
 
     for path in (
         BACKEND / "libs" / "xian_core" / "src",

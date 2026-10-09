@@ -60,6 +60,27 @@ def test_dns_verification_roundtrip() -> None:
     assert failed["result"] == "failed"
 
 
+def test_dns_verification_injected_nonce_still_matches(monkeypatch) -> None:
+    """显式注入具体 nonce 的域名仍然按字面比对，不会被通配规则放大。"""
+    nonce = make_nonce()
+    monkeypatch.setenv("XIAN_VERIFY_TXT", f"agent-a.corp.com=xian-verify={nonce}")
+    assert verify_dns("agent-a.corp.com", nonce)["result"] == "verified"
+    assert verify_dns("agent-a.corp.com", make_nonce())["result"] == "failed"
+
+
+def test_dns_verification_dev_wildcard(monkeypatch) -> None:
+    """开发注入通配记录：声明域名已持有，任意 nonce 均算匹配。
+
+    接入向导每给新 Agent 生成新 nonce；只写死单个 nonce 的注入会让第二个 Agent
+    的归属校验必然失败，本地演示因此支持 xian-verify=* 通配。通配只对注入过的
+    域名生效，未注入的域名该失败还是失败。
+    """
+    monkeypatch.setenv("XIAN_VERIFY_TXT", "127.0.0.1=xian-verify=*")
+    nonce = make_nonce()
+    assert verify_dns("127.0.0.1", nonce)["result"] == "verified"
+    assert verify_dns("agent-a.corp.com", nonce)["result"] == "failed"
+
+
 def test_image_digest_validation() -> None:
     bad = verify_image_digest("not-a-digest")
     assert bad["result"] == "failed"

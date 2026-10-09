@@ -15,6 +15,8 @@ from ..errors import OwnershipNotVerified
 from ..schemas.common import OwnershipMethod, OwnershipResult
 
 TXT_PREFIX = "xian-verify="
+# 开发注入通配记录：声明"该域名在本机演示中视为已持有"，任意一次性 nonce 均算匹配。
+WILDCARD_RECORD = f"{TXT_PREFIX}*"
 DIGEST_PATTERN = re.compile(r"^sha256:[a-f0-9]{64}$")
 
 
@@ -79,7 +81,9 @@ def verify_dns(domain: str, nonce: str, *, expected: str | None = None) -> dict[
     """DNS TXT 校验；无 dnspython 时退化为严格字面比对（供离线/测试环境）。"""
     records = _resolve_txt(domain)
     target = expected or f"{TXT_PREFIX}{nonce}"
-    matched = any(target in rec for rec in records)
+    # 通配记录命中即算通过：接入向导每给一个新 Agent 生成新 nonce，
+    # 写死单个 nonce 的注入会让第二个 Agent 的校验必然失败。
+    matched = any(r.strip() == WILDCARD_RECORD for r in records) or any(target in rec for rec in records)
     return {
         "method": OwnershipMethod.dns_txt.value,
         "target": domain,
