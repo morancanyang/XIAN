@@ -24,6 +24,10 @@
 - 部署前验证用 typecheck + 单测 + playwright：部分 Windows 主机上
   vite build 会在 esbuild 删除临时文件时报 Access is denied（本地权限/安全软件限制，
   与代码无关，tsconfig 编译本身通过）。
+- 战役执行按 DAG 依赖分层并发（PRD 3.3.5.8.1 规则③）：同层无依赖用例并发投放，
+  默认并发度 4，可用战役 constraints.concurrency 覆盖（夹在 1~16）。
+  投放与事件播报并发、落库串行；token 记账跟随投放，预算熔断在层内即可刹住。
+  实测 12 条用例：并发 1 耗时 12.1s，并发 4 耗时 3.9s。
 ## 验证入口汇总
 
 ```bash
@@ -37,7 +41,7 @@ python -m pytest examples/demo-agent -q         # AC-02
 | 指标 | 目标 | 实测 |
 | --- | --- | --- |
 | 端到端冒烟耗时 | ≤ 30 min | 27 s |
-| 后端单测 | 全绿 | 215 passed |
+| 后端单测 | 全绿 | 223 passed |
 | 示例 Agent 自检 | 全绿 | 15 passed |
 | 前端单测 | 全绿 | 24 passed |
 | API 路由数 | PRD 模块全覆盖 | 69 路由 / 26 router |

@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -127,6 +128,53 @@ def _planned_cases(campaign: Campaign) -> list[Any]:
     return out
 
 
+DEFAULT_CONCURRENCY = 4
+MAX_CONCURRENCY = 16
+
+
+def _case_layers(campaign: Campaign, limit: int = 0) -> list[list[Any]]:
+    """把 DAG 计划用例按依赖深度切成可并发推进的层。
+
+    commander 落库的 ``dag_nodes`` 已按拓扑序排列，这里再按 ``depends_on`` 还原依赖层：
+    同一层内的用例彼此无依赖，可并发投放（PRD 3.3.5.8.1 规则③）；
+    跨层仍按层序推进，提权/渗出类因此拿得到前序已泄露的上下文。
+    计划不可用（缺失或全是旧 ID）时返回空列表，由调用方回退 select_cases。
+    """
+    dag = dict(campaign.plan_dag or {})
+    nodes = [node for node in (dag.get("dag_nodes") or []) if isinstance(node, dict)]
+    if not nodes:
+        return []
+    cases = _planned_cases(campaign)
+    if limit:
+        cases = cases[:limit]
+    if not cases:
+        return []
+    depth: dict[str, int] = {}
+    for node in nodes:  # dag_nodes 已是拓扑序，依赖必定排在自己前面
+        deps = [str(dep) for dep in (node.get("depends_on") or [])]
+        depth[str(node.get("id"))] = max((depth[d] for d in deps if d in depth), default=-1) + 1
+    owner: dict[str, str] = {}
+    for node in nodes:
+        for case_id in node.get("case_ids") or []:
+            owner[str(case_id)] = str(node.get("id"))
+    order = {case.case_id: index for index, case in enumerate(cases)}
+    layers: dict[int, list[Any]] = {}
+    for case in cases:
+        layers.setdefault(depth.get(owner.get(case.case_id, ""), 0), []).append(case)
+    # 层内仍按计划顺序（拓扑序 + 同层权重降序）推进，报告清单才能和详情页 DAG 逐条对上
+    return [sorted(layers[key], key=lambda case: order[case.case_id]) for key in sorted(layers)]
+
+
+def _concurrency_of(campaign: Campaign) -> int:
+    """层内并发度：默认 4，可由战役 constraints.concurrency 覆盖，夹在 1~16。"""
+    raw = (campaign.constraints or {}).get("concurrency", DEFAULT_CONCURRENCY)
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return DEFAULT_CONCURRENCY
+    return max(1, min(MAX_CONCURRENCY, value))
+
+
 async def execute_campaign(
     campaign: Campaign,
     *,
@@ -139,7 +187,7 @@ async def execute_campaign(
     canary_values: list[str] | None = None,
     store: ClickHouseStore | None = None,
 ) -> CampaignExecution:
-    """执行战役：逐用例攻击 -> 判定 -> 落 trace 与 attack_record。"""
+    """执行战役：按 DAG 依赖分层并发投放 -> 逐条判定 -> 串行落 trace 与 attack_record。"""
     attacker = Attacker()
     trace_store = store or ClickHouseStore()
     budget = dict(campaign.budget or {})
@@ -149,11 +197,14 @@ async def execute_campaign(
     # 指挥官按攻击面优先级与历史战绩把预算切到每个类别（PRD 3.3.5.8.1 规则①②），
     # 执行器必须照单执行。之前这里另跑一套 select_cases，
     # 该算的权重再准也一条都不会影响实际打到哪里，详情页那份“可核对的执行清单”只是装饰。
-    cases = _planned_cases(campaign)[:max_cases]
-    if not cases:
-        cases = select_cases(categories=list(campaign.scope) or None, limit=max_cases)
-        if not cases:
-            cases = select_cases(limit=max_cases)
+    layers = _case_layers(campaign, max_cases)
+    if not layers:
+        fallback = select_cases(categories=list(campaign.scope) or None, limit=max_cases)
+        if not fallback:
+            fallback = select_cases(limit=max_cases)
+        # 回退路径没有 DAG 依赖信息，只能逐条串行，保持旧行为
+        layers = [[case] for case in fallback]
+    cases = [case for layer in layers for case in layer]
 
     result = CampaignExecution(campaign_id=str(campaign.id))
     values = list(canary_values or (campaign.constraints or {}).get("canary_values", []) or [])
@@ -168,11 +219,26 @@ async def execute_campaign(
     await _emit(campaign, "log", f"指挥官下单：{len(cases)} 条用例，预算 {max_tokens} token",
                 {"cases": len(cases), "budget": max_tokens}, "commander")
 
-    for case in cases:
-        if result.tokens >= max_tokens:
-            campaign.partial = True
+    # 规则③：无依赖的用例并发投放。层由 plan_dag 的 depends_on 推出，
+    # 同层用例彼此无依赖才并行，跨层仍等前序上下文就位。
+    gate = asyncio.Semaphore(_concurrency_of(campaign))
+    budget_alerted = False
+
+    async def _budget_exhausted() -> bool:
+        """token 预算熔断：命中即置 partial，并只上报一次，避免并发下重复刷警报。"""
+        nonlocal budget_alerted
+        if result.tokens < max_tokens:
+            return False
+        campaign.partial = True
+        if not budget_alerted:
+            budget_alerted = True
             await _emit(campaign, "alert", f"token 预算 {max_tokens} 已耗尽，战役提前收尾", {}, "system")
-            break
+        return True
+
+    async def _attack(case: Any) -> AttackOutcome | None:
+        """单条用例的投放与判定：只做网络/LLM 交互，不碰数据库，可安全并发。"""
+        if await _budget_exhausted():
+            return None
         strategy_id = str((case.success_criteria or {}).get("strategy", ""))
         await _emit(campaign, "log", f"载荷下发：{case.case_id} {case.category_code}",
                     {"case_id": case.case_id, "category_code": case.category_code,
@@ -196,8 +262,39 @@ async def execute_campaign(
         except Exception as exc:  # 目标不可达不应中断整场战役
             await _emit(campaign, "alert", f"{case.case_id} 目标调用失败：{exc}",
                         {"case_id": case.case_id, "category_code": case.category_code}, "system")
-            outcome = _unavailable_outcome(case.case_id, case.category_code, strategy_id, str(exc))
+            return _unavailable_outcome(case.case_id, case.category_code, strategy_id, str(exc))
+        # token 记账跟着投放走，不等落库：同层后续用例开场前就能看到已烧掉的额度，
+        # 预算熔断才不会因为"整层一起放"而整层超支。
+        result.tokens += int(outcome.tokens)
+        result.cost += round(int(outcome.tokens) * 0.000002, 6)
+        # 判定也在这里播报：_emit 只走总线不碰库，可安全并发，
+        # 活动流于是随打随出，而不是等整层落库后一次性刷一批。
+        await _emit(
+            campaign,
+            "verdict",
+            f"{case.case_id} 判定 {enum_str(outcome.verdict)}：{outcome.reason or '-'}",
+            {
+                "case_id": outcome.case_id,
+                "category_code": outcome.category_code,
+                "verdict": enum_str(outcome.verdict),
+                "confidence": outcome.confidence,
+                "turns": outcome.turn_count,
+                "tokens": outcome.tokens,
+            },
+            "judge",
+        )
+        return outcome
 
+    async def _guarded(case: Any) -> AttackOutcome | None:
+        async with gate:
+            return await _attack(case)
+
+    async def _persist(case: Any, outcome: AttackOutcome) -> None:
+        """单条用例落库：PG 摘要 + verdicts 判定流水 + ClickHouse trace 明细。
+
+        必须串行调用：AsyncSession 不是并发安全的；records 也要按计划顺序追加，
+        报告里的执行清单才能和详情页 DAG 逐条对上。事件播报不在这里做。
+        """
         record = AttackRecord(
             tenant_id=tenant_id,
             agent_id=campaign.agent_id,
@@ -216,21 +313,6 @@ async def execute_campaign(
             cost=round(int(outcome.tokens) * 0.000002, 6),
             trace_key=f"ch://trace_events/{tenant_id}/{campaign.id}",
         )
-        await _emit(
-            campaign,
-            "verdict",
-            f"{case.case_id} 判定 {enum_str(outcome.verdict)}：{outcome.reason or '-'}",
-            {
-                "case_id": outcome.case_id,
-                "category_code": outcome.category_code,
-                "verdict": enum_str(outcome.verdict),
-                "confidence": outcome.confidence,
-                "turns": outcome.turn_count,
-                "tokens": outcome.tokens,
-            },
-            "judge",
-        )
-
         session.add(record)
         await session.flush()
 
@@ -274,8 +356,6 @@ async def execute_campaign(
         )
 
         result.executed += 1
-        result.tokens += int(outcome.tokens)
-        result.cost += record.cost
         if enum_str(outcome.verdict) == str(VerdictEnum.success):
             result.success += 1
         elif enum_str(outcome.verdict) == str(VerdictEnum.partial):
@@ -298,6 +378,23 @@ async def execute_campaign(
         )
         campaign.progress = min(100, int(result.executed * 100 / max(1, len(cases))))
         await session.flush()
+
+    for layer in layers:
+        if not layer:
+            continue
+        if await _budget_exhausted():
+            break
+        # gather 只负责"打"：并发跑完再统一串行落库，避免 AsyncSession 被并发写坏
+        outcomes = await asyncio.gather(*(_guarded(case) for case in layer), return_exceptions=False)
+        skipped = False
+        for case, outcome in zip(layer, outcomes, strict=True):
+            if outcome is None:
+                skipped = True
+                continue
+            await _persist(case, outcome)
+        if skipped:
+            await _budget_exhausted()
+            break
 
     result.sec_score = _sec_score(result)
     result.grade = grade_of(result.sec_score) if result.sec_score is not None else ""
