@@ -67,12 +67,15 @@ async def list_agents(
     page: PageParams = Depends(),
     status: AgentStatus | None = Query(default=None, description="按状态过滤；缺省返回全部状态"),
 ) -> Page[AgentOut]:
-    """租户资产列表。缺省返回全部状态，前端状态筛选与各处 Agent 选择器才能看到未校验资产。"""
+    """租户资产列表：状态过滤 + 关键字搜索（名称 / 端点），缺省返回全部状态。"""
     repo = AgentRepository(session, principal.tenant_id)
-    rows = await repo.for_tenant(status=str(status) if status else None)
-    total = len(rows)
-    start = (page.page - 1) * page.size
-    return Page(items=[to_out(r) for r in rows[start : start + page.size]], total=total, page=page.page, size=page.size)
+    rows, total = await repo.paginate_for_tenant(
+        page=page.page,
+        size=page.size,
+        keyword=page.keyword,
+        status=str(status) if status else None,
+    )
+    return Page(items=[to_out(r) for r in rows], total=total, page=page.page, size=page.size)
 
 
 @router.post("", response_model=AgentOut, status_code=status.HTTP_201_CREATED)

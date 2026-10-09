@@ -32,10 +32,10 @@ def headers() -> dict[str, str]:
     }
 
 
-def _create_agent(client: TestClient, headers: dict[str, str], name: str) -> dict:
+def _create_agent(client: TestClient, headers: dict[str, str], name: str, endpoint: str = "http://x") -> dict:
     resp = client.post(
         "/api/v1/agents",
-        json={"name": name, "access_type": "http", "endpoint": "http://x"},
+        json={"name": name, "access_type": "http", "endpoint": endpoint},
         headers=headers,
     )
     assert resp.status_code == 201, resp.text
@@ -68,3 +68,41 @@ def test_unknown_status_is_rejected(client: TestClient, headers: dict[str, str])
     """非法状态值必须 422，不能静默返回空列表把人误导成"没有资产"。"""
     resp = client.get("/api/v1/agents", params={"status": "bogus"}, headers=headers)
     assert resp.status_code == 422
+
+
+def test_keyword_searches_name_and_endpoint(client: TestClient, headers: dict[str, str]) -> None:
+    """关键字要命中名称与端点（前端搜索框的提示就是"搜索名称 / 端点"）。"""
+    by_name = _create_agent(client, headers, "订单客服 Agent")
+    by_endpoint = _create_agent(client, headers, "另一个", endpoint="http://orders.internal/chat")
+
+    hit_name = client.get("/api/v1/agents", params={"keyword": "订单客服"}, headers=headers).json()
+    assert [a["id"] for a in hit_name["items"]] == [by_name["id"]]
+
+    hit_endpoint = client.get("/api/v1/agents", params={"keyword": "orders.internal"}, headers=headers).json()
+    assert [a["id"] for a in hit_endpoint["items"]] == [by_endpoint["id"]]
+
+
+def test_keyword_is_case_insensitive(client: TestClient, headers: dict[str, str]) -> None:
+    agent = _create_agent(client, headers, "Payment Bot", endpoint="http://x")
+    body = client.get("/api/v1/agents", params={"keyword": "payment"}, headers=headers).json()
+    assert [a["id"] for a in body["items"]] == [agent["id"]]
+
+
+def test_keyword_combines_with_status(client: TestClient, headers: dict[str, str]) -> None:
+    agent = _create_agent(client, headers, "组合筛选探针")
+    body = client.get(
+        "/api/v1/agents", params={"keyword": "组合筛选", "status": "unverified"}, headers=headers
+    ).json()
+    assert [a["id"] for a in body["items"]] == [agent["id"]]
+
+    miss = client.get(
+        "/api/v1/agents", params={"keyword": "组合筛选", "status": "active"}, headers=headers
+    ).json()
+    assert miss["items"] == []
+
+
+def test_keyword_without_match_returns_empty(client: TestClient, headers: dict[str, str]) -> None:
+    _create_agent(client, headers, "存在但搜不到")
+    body = client.get("/api/v1/agents", params={"keyword": "绝不存在的关键词"}, headers=headers).json()
+    assert body["items"] == []
+    assert body["total"] == 0

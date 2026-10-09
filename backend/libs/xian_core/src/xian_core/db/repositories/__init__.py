@@ -121,18 +121,32 @@ class AuditRepository(Repository[AuditLog]):
 class AgentRepository(Repository[Agent]):
     model = Agent
 
-    async def for_tenant(self, status: str | None = None) -> Sequence[Agent]:
-        """按租户取资产；``status`` 为空返回全部状态。
+    async def paginate_for_tenant(
+        self,
+        *,
+        page: int = 1,
+        size: int = 20,
+        keyword: str | None = None,
+        status: str | None = None,
+    ) -> tuple[Sequence[Agent], int]:
+        """按租户分页取资产，支持关键字与状态过滤，返回 (当前页, 总数)。
 
         原实现写死 ``status == "active"``，刚接入、尚未完成归属校验的资产在列表和
         各处 Agent 选择器里直接消失——用户看不到自己刚建的东西，也没法选中它去打演练。
-        调用方（前端状态筛选 / 控制台与建战役的下拉）需要什么状态自己传。
+        调用方（前端状态筛选 / 控制台与建战役的下拉）需要什么状态自己传，缺省不限。
+
+        分页与关键字下沉到 SQL：原先是全量拉回来再切片，租户资产多的时候既慢又让
+        ``total`` 与筛选条件脱钩。
         """
-        stmt = self._base_query()
-        if status:
-            stmt = stmt.where(Agent.status == status)
-        stmt = stmt.order_by(Agent.created_at.desc())
-        return (await self.session.execute(stmt)).scalars().all()
+        return await self.paginate(
+            page=page,
+            size=size,
+            keyword=keyword,
+            keyword_fields=("name", "endpoint"),
+            filters={"status": status} if status else None,
+            order_by="created_at",
+            desc=True,
+        )
 
 
 class AgentVersionRepository(Repository[AgentVersion]):
